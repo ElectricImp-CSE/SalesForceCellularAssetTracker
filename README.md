@@ -33,6 +33,9 @@ This project uses u-blox AssistNow services, and requires and account and author
 
 TODO: add instructions re: setting up Salesforce account, creating connected app, etc.
 
+** device flow auth (do this for getting started)
+** jwt flow auth (this is recommended for production)
+
 ### Electric Imp Configuration ### 
 
 TODO: add instructions re: setting up EI account
@@ -61,7 +64,9 @@ For development purposes uart logging is recommended to see offline device logs.
 
 ## Customization ##
 
-Settings are all stored as constants. Modify to customize the application. To save power put the device to sleep between reporting intervals (Note: The impC001 takes ~40s to connect.). 
+Settings are all stored as constants. Modify to customize the application. To save power put the device to sleep between reporting intervals (Note: The impC001 takes ~40s to connect.)
+
+TODO: add listeners from salesforce (bayeux client) for updating settings (ie temp thresholds, reporting intervals etc)
 
 # License
 

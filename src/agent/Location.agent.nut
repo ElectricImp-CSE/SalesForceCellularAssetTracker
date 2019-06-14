@@ -56,4 +56,27 @@ class Location {
         }.bindenv(this));
     }
 
+    function getOfflineAssist(onResp) {
+        local assistOfflineParams = {
+            "gnss"   : ["gps", "glo"],
+            "period" : 1,
+            "days"   : 3
+        };
+
+        assist.requestOffline(assistOfflineParams, function(err, resp) {
+            local assistData = null;
+            if (err != null) {
+                ::error("Online req error: " + err);
+            } else {
+                ::debug("Received AssistNow Online. Data length: " + resp.body.len());
+                assistData = assist.getOfflineMsgByDate(resp);
+                // Log Data Lengths
+                foreach(day, data in assistData) {
+                    ::debug(format("offline assist for %s len %d", day, data.len()));
+                }
+            }
+            onResp(assistData);
+        }.bindenv(this))
+    }
+
 }

@@ -49,10 +49,10 @@ class Location {
     accTarget  = null;
     onAccFix   = null;
 
-    bootTime   = null;
+    bootGPSTime   = null;
 
-    constructor(_bootTime) {
-        bootTime = _bootTime;
+    constructor() {
+        bootGPSTime = hardware.millis();
 
         ::debug("Configuring u-blox...");
         ubx = UBloxM8N(GPS_UART);
@@ -174,7 +174,7 @@ class Location {
 
         if (fixType >= FIX_TYPE.FIX_3D) {
             // Get timestamp for this fix
-            local fixTime = (hardware.millis() - bootTime) / 1000.0;
+            local fixTime = (hardware.millis() - bootGPSTime) / 1000.0;
 
             // If this is the first fix, create fix report table
             if (gpsFix == null) {
@@ -188,8 +188,8 @@ class Location {
             gpsFix.secToFix <- fixTime;
             gpsFix.fixType <- fixType;
             gpsFix.numSats <- payload.numSV;
-            gpsFix.lon <- UbxMsgParser.toDecimalDegreeString(payload.lon);
-            gpsFix.lat <- UbxMsgParser.toDecimalDegreeString(payload.lat);
+            gpsFix.lon <- payload.lon;
+            gpsFix.lat <- payload.lat;
             gpsFix.time <- timeStr;
             gpsFix.accuracy <- _getAccuracy(payload.hAcc);
 

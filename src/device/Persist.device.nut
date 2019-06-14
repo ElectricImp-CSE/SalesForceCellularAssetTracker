@@ -26,7 +26,9 @@
 
 enum PERSIST_FILE_NAMES {
     WAKE_TIME     = "wake", 
-    REPORT_TIME   = "report"
+    REPORT_TIME   = "report", 
+    LOCATION      = "loc", 
+    ASSIST        = "assist"
 }
 
 // Manages Persistant Storage  
@@ -38,7 +40,11 @@ class Persist {
 
     reportTime   = null;
     wakeTime     = null;
+    location     = null;
 
+    // Pass in optional flag to bypass persistant storage
+    // Use optional flag if applicaton is not putting the device to sleep
+    // or device doesn't need to persist data through power cycles.
     constructor() {
         // TODO: Update with more optimized circular buffer.
         // TODO: Optimize erases to happen when it won't keep device awake
@@ -80,7 +86,26 @@ class Persist {
         return reportTime;;
     }
 
-    function setWakeTime(newTime) {
+    function getLocation() {
+        // If we have a local copy, return the local copy
+        if (location != null) return location;
+
+        // Try to get report time from SPI, store a local copy
+        if (_sffs.fileExists(PERSIST_FILE_NAMES.LOCATION)) {
+            local file = _sffs.open(PERSIST_FILE_NAMES.LOCATION, "r");
+            local rt = file.read();
+            file.close();
+            rt.seek(0, 'b');
+            location = {};
+            location.lat <- rt.readn('i');
+            location.lng <- rt.readn('i');
+        }
+        
+        // Return location or null if it is not found
+        return location;;
+    }
+
+    function setWakeTime(newTime, storeToSPI = true) {
         // Only update if timestamp has changed
         if (wakeTime == newTime) return;
 
@@ -91,13 +116,16 @@ class Persist {
 
         // Update local and stored wake time with the new time
         wakeTime = newTime;
-        local file = _sffs.open(PERSIST_FILE_NAMES.WAKE_TIME, "w");
-        file.write(_serializeTimestamp(wakeTime));
-        file.close();
-        ::debug("Wake time stored: " + wakeTime);
+
+        if (storeToSPI) {
+            local file = _sffs.open(PERSIST_FILE_NAMES.WAKE_TIME, "w");
+            file.write(_serializeTimestamp(wakeTime));
+            file.close();
+            ::debug("Wake time stored: " + wakeTime);
+        }
     }
 
-    function setReportTime(newTime) {
+    function setReportTime(newTime, storeToSPI = true) {
         // Only update if timestamp has changed
         if (reportTime == newTime) return;
 
@@ -108,15 +136,49 @@ class Persist {
 
         // Update local and stored report time with the new time
         reportTime = newTime;
-        local file = _sffs.open(PERSIST_FILE_NAMES.REPORT_TIME, "w");
-        file.write(_serializeTimestamp(reportTime));
-        file.close();
-        ::debug("Report time stored: " + reportTime);
+        
+        if (storeToSPI) {
+            local file = _sffs.open(PERSIST_FILE_NAMES.REPORT_TIME, "w");
+            file.write(_serializeTimestamp(reportTime));
+            file.close();
+            ::debug("Report time stored: " + reportTime);
+        }
+    }
+
+    function setLocation(lat, lng, storeToSPI) {
+        // Only update if location has changed
+        if (lat == location.lat && lng == location.lng) return;
+
+        // Erase outdated report time
+        if (_sffs.fileExists(PERSIST_FILE_NAMES.LOCATION)) {
+            _sffs.eraseFile(PERSIST_FILE_NAMES.LOCATION)
+        }
+
+        // Update local and stored report time with the new time
+        location = {
+            "lat" : lat,
+            "lon" : lng
+        };
+
+        if (storeToSPI) {        
+            local file = _sffs.open(PERSIST_FILE_NAMES.LOCATION, "w");
+            file.write(_serializeLocation(lat, lng));
+            file.close();
+            ::debug("Location stored lat: " + lat + ", lng: " + lng);
+        }
     }
 
     function _serializeTimestamp(ts) {
         local b = blob(4);
         b.writen(ts, 'i');
+        b.seek(0, 'b');
+        return b;
+    }
+
+    function _serializeLocation(lat, lng) {
+        local b = blob(8);
+        b.writen(lat, 'i');
+        b.writen(lng, 'i');
         b.seek(0, 'b');
         return b;
     }

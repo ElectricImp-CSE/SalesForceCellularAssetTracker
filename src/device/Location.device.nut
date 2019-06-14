@@ -95,6 +95,11 @@ class Location {
         assist.writeAssistNow(msgs, onDone);
     }
 
+    // Parameter is the table returned by date
+    function getAssistDateFileName(d = null) {
+        return assist.getDateString(d);
+    }
+
     function _onNavMsg(payload) {
         // This will trigger on every msg, so don't log message unless you need to debug something
         // ::debug("In NAV_PVT msg handler...");

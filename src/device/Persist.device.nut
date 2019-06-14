@@ -24,11 +24,12 @@
 
 // Persistant Storage File
 
+// NOTE: Assist messages will just be stored by date, so not 
+// all file names are stored in this enum.
 enum PERSIST_FILE_NAMES {
     WAKE_TIME     = "wake", 
     REPORT_TIME   = "report", 
-    LOCATION      = "loc", 
-    ASSIST        = "assist"
+    LOCATION      = "loc"
 }
 
 // Manages Persistant Storage  
@@ -105,6 +106,18 @@ class Persist {
         return location;;
     }
 
+    // Use a date string to get assist messages for that day
+    function getAssistByDate(fileName) {
+        if (!_sffs.fileExists(fileName)) return null;
+
+        // Open, get all assist messages for that file name (date)
+        local file = _sffs.open(fileName, "r");
+        local msgs = file.read();
+        file.close();
+
+        return msgs;
+    }
+
     function setWakeTime(newTime, storeToSPI = true) {
         // Only update if timestamp has changed
         if (wakeTime == newTime) return;
@@ -168,6 +181,23 @@ class Persist {
         }
     }
 
+    // Takes a table of assist messages, where table slots are date strings
+    // NOTE: these date strings will be used as file names
+    function storeAssist(msgsByDate) {
+        foreach(day, msgs in msgsByDate) {
+            // TODO: erase all stale messages as well as today's
+            // If day exists, delete it as new data will be fresher
+            if (_sffs.fileExists(day)) {
+                _sffs.eraseFile(day);
+            }
+
+            // Write day msgs
+            local file = _sffs.open(day, "w");
+            file.write(msgs);
+            file.close();
+        }
+    }
+
     function _serializeTimestamp(ts) {
         local b = blob(4);
         b.writen(ts, 'i');
@@ -182,5 +212,7 @@ class Persist {
         b.seek(0, 'b');
         return b;
     }
+
+    // TODO: Create a method that erases stale assist messages
 
 }

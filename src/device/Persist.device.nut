@@ -130,7 +130,7 @@ class Persist {
             local rt = file.read();
             file.close();
             rt.seek(0, 'b');
-            offlineAssistChecked = rt;
+            offlineAssistChecked = rt.readn('i');
         }
         
         // Return offlineAssistChecked or null if it is not found
@@ -177,9 +177,9 @@ class Persist {
         }
     }
 
-    function setLocation(lat, lng, storeToSPI) {
+    function setLocation(lat, lng, storeToSPI = true) {
         // Only update if location has changed
-        if (lat == location.lat && lng == location.lng) return;
+        if (location != null && location.len() == 2 && lat == location.lat && lng == location.lng) return;
 
         // Erase outdated report time
         if (_sffs.fileExists(PERSIST_FILE_NAMES.LOCATION)) {
@@ -189,7 +189,7 @@ class Persist {
         // Update local and stored report time with the new time
         location = {
             "lat" : lat,
-            "lon" : lng
+            "lng" : lng
         };
 
         if (storeToSPI) {        
@@ -200,7 +200,7 @@ class Persist {
         }
     }
 
-    function setOfflineAssistChecked(newTime, storeToSPI) {
+    function setOfflineAssistChecked(newTime, storeToSPI = true) {
         if (offlineAssistChecked == newTime) return;
 
         // Erase outdated report time
@@ -215,7 +215,7 @@ class Persist {
             local file = _sffs.open(PERSIST_FILE_NAMES.OFFLINE_ASSIST_CHECKED, "w");
             file.write(_serializeTimestamp(offlineAssistChecked));
             file.close();
-            ::debug("Report time stored: " + offlineAssistChecked);
+            ::debug("Offline assist refesh time stored: " + offlineAssistChecked);
         }
     }
 
@@ -261,8 +261,6 @@ class Persist {
             local files = _sffs.getFileList();
             foreach(file in files) {
                 local name = file.fname;
-                ::debug("SFFS file name: " + name);
-
                 // Find assist files for dates that have already passed
                 if (name != PERSIST_FILE_NAMES.WAKE_TIME &&
                     name != PERSIST_FILE_NAMES.REPORT_TIME && 

@@ -57,15 +57,20 @@
 // NOTE: These timings have an impact on battery life. Current setting are not 
 // battery efficient.
 // Wake every x seconds to check if report should be sent (location changed, etc)
-const CHECK_IN_TIME_SEC    = 10;
+const CHECK_IN_TIME_SEC      = 10;
 // Wake every x seconds to send a report, regaurdless of check results
-const REPORT_TIME_SEC      = 300 // 60 * 5; 
+const REPORT_TIME_SEC        = 300 // 60 * 5; 
 
 // Accuracy of GPS fix in meters
-const LOCATION_ACCURACY    = 10;
-const LOCATION_TIMEOUT_SEC = 70; 
+const LOCATION_ACCURACY      = 10;
+const LOCATION_TIMEOUT_SEC   = 70; 
+const OFFLINE_ASSIST_REQ_MAX = 43200; // Limit requests to every 12h (12 * 60 * 60) 
 // Constant used to validate imp's timestamp (must be a year greater than 2000)
-const VALID_TS_YEAR        = 2019;
+const VALID_TS_YEAR          = 2019;
+// Low battery alert threshold in percentage
+const BATTERY_LOW_THRESH     = 10;
+// Distance threshold in meters
+const DISTANCE_THRESHOLD_M   = 50;
 
 class MainController {
 
@@ -154,27 +159,32 @@ class MainController {
             return;
         }
 
-        ::debug("Assist messages received from agent. Writing to u-blox");
         // Make sure location class is initialized
         if (loc == null) loc = Location(); 
         // Response contains assist messages from cloud
         local assistMsgs = response;
 
         if (msg.payload.data == ASSIST_TYPE.OFFLINE) {
+            ::debug("Offline assist messages received from agent");
             // Get today's date string/file name
             local todayFileName = loc.getAssistDateFileName();
 
             // Store all offline assist messages by date
             persist.storeAssist(response);
+            // Update time we last checked
+            persist.setOfflineAssistChecked(time());
 
             // Select today's offline assist messages only
             if (todayFileName in response) {
                 assistMsgs = response.todayFileName;
+                ::debug("Writing offline assist messages to u-blox");
             } else {
                 ::debug("No offline assist messges for today. No messages written to UBLOX.");
                 return;
             }
-        } 
+        } else {
+            ::debug("Online assist messages received from agent. Writing to u-blox");
+        }
 
         // Write assist messages to UBLOX module
         loc.writeAssistMsgs(assistMsgs, onAssistMsgDone.bindenv(this));
@@ -190,8 +200,9 @@ class MainController {
         // Set i2c clock rate
         SENSOR_I2C.configure(CLOCK_SPEED_400_KHZ);
 
-        // Get offline assist messages
+        // Get assist messages
         reqOfflineAssist();
+        reqOnlineAssist();
 
         // Trigger async tasks
         local tasks = [getLocation(), getBattStatus(), getTempHumid()];
@@ -208,15 +219,28 @@ class MainController {
     }
 
     function onCheckIn() {
-        ::debug("Made it to first check-in!!!");
-        // TODO: Update this once onBoot is working!!!
+        ::debug("Starting check-in flow...");
 
-        // Take readings (location, temp, batt)
-        // If (when) online 
-            // Refresh offline assist messages (if needed - limit to every 12h)
-        // Check if should report (location change, low battery)
-            // Send report
-            // or schedule next check-in
+        // Get offline assist messages if needed
+        // TODO: Move to connection flow if sleep/wake flow implemented.
+        reqOfflineAssist();
+
+        // Trigger async tasks
+        local tasks = [getLocation(), getBattStatus(), getTempHumid()];
+        Promise.serial(tasks)
+            .then(function(msg) {
+                // Persist raw location data so we can determine location changes on next check-in
+                if ("fix" in report && "lat" in report.fix && "lng" in report.fix) {
+                    persist.setLocation(report.fix.lat, report.fix.lng, storeToSpi);
+                }
+
+                if (shouldReport()) {
+                    // NOTE: Report ack/timeout/fail handler(s) will schedule next check-in
+                    sendReport();
+                } else {
+                    scheduleNextCheckIn();
+                }
+            }.bindenv(this));
     }
 
     function scheduleNextCheckIn() {
@@ -228,9 +252,10 @@ class MainController {
     // Actions
     // -------------------------------------------------------------
 
-    // Send a request to agent for offline assist messages
+    // Send a request to agent for offline assist messages if we haven't refreshed recently
     function reqOfflineAssist() {
-        if (cm.isConnected()) {
+        // Limit requests (Offline Assist data refreshes 1X-2X a day)
+        if (shouldGetOfflineAssist() && cm.isConnected()) {
             // We don't have a fix, request assist online data
             ::debug("Requesting offline assist messages from agent/Assist Now.");
             local mmHandlers = {
@@ -279,13 +304,14 @@ class MainController {
             loc.getLocation(LOCATION_ACCURACY, function(gpxFix) {
                 ::debug("Got fix. Disabling GPS power");
                 PWR_GATE_EN.write(0);
-        
+
                 // Store fix data for report
                 // NOTE: Keep both raw (so we can store easily to SPI) and formatted 
                 // lat and lng (for reporting) 
-                if ("lat" in gpxFix) report.lat = UbxMsgParser.toDecimalDegreeString(gpxFix.lat);
-                if ("lng" in gpxFix) report.lng = UbxMsgParser.toDecimalDegreeString(gpxFix.lng);
+                if ("lat" in gpxFix) report.lat <- UbxMsgParser.toDecimalDegreeString(gpxFix.lat);
+                if ("lng" in gpxFix) report.lng <- UbxMsgParser.toDecimalDegreeString(gpxFix.lng);
                 report.fix <- gpxFix;
+
                 return resolve("GPS location done");
             }.bindenv(this));
 
@@ -365,15 +391,39 @@ class MainController {
     // Helpers
     // -------------------------------------------------------------
 
+    function shouldGetOfflineAssist() {
+        local lastChecked = persist.getOfflineAssestChecked();
+        return (lastChecked == null || time() >= (lastChecked + OFFLINE_ASSIST_REQ_MAX));
+    }
+
     // Returns boolean, checks for event(s) or if report time has passed
     function shouldReport() {
-        // TODO: updat this logic for current application!!!
+        // Check if we have moved using current and previous location
+        // NOTE: This updates stored location, so needs to be the first thing checked
+        if ("fix" in report) {
+            // We have a new location, check distance
 
-        // Check for events
-        // Note: TODO check if location has changed
-        // local haveMoved = persist.getMoveDetected();
-        // ::debug("Movement detected: " + haveMoved);
-        // if (haveMoved) return true;
+            // Get stored location
+            local lastLoc = persist.getLocation();
+
+            if (lastLoc == null) {
+                // We have not reported a location yet, so send a report
+                // Update stored lat and lng
+                persist.setLocation(lat, lng, false);
+                return true;
+            } else {
+                local lat = report.fix.lat;
+                local lng = report.fix.lng;
+                // Param order: new lat, new lng, old lat old lng
+                local dist = loc.calculateDistance(lat, lng, lastLoc.lat, lastLoc.lng);
+
+                // Update stored lat and lng
+                persist.setLocation(lat, lng, false);
+
+                // Report if we have moved more than the minimum distance
+                if (dist >= DISTANCE_THRESHOLD_M) return true;
+            }
+        }
 
         // NOTE: We need a valid timestamp to determine sleep times.
         // If the imp looses all power, a connection to the server is
@@ -382,11 +432,18 @@ class MainController {
         ::debug("Valid timestamp: " + validTS);
         if (!validTS) return true;
 
+        // Check if battery is low
+        if ("battStatus" in report && report.battStatus.percent <= BATTERY_LOW_THRESH) {
+            return true;
+        } 
+
+        // TODO: Feature - Add temp/humid in range checks
+
         // Check if report time has passed
-        // local now = time();
-        // local shouldReport = (now >= persist.getReportTime());
-        // ::debug("Time to send report: " + shouldReport);
-        // return shouldReport;
+        local now = time();
+        local shouldReport = (now >= persist.getReportTime());
+        ::debug("Time to send report: " + shouldReport);
+        return shouldReport;
     }
 
     // Returns boolean, if the imp module currently has a valid timestamp
@@ -397,7 +454,7 @@ class MainController {
         // is greater or equal to VALID_TS_YEAR constant.
         return (d.year >= VALID_TS_YEAR);
     }
-
+    
 }
 
 // Runtime

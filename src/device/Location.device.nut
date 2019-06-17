@@ -114,6 +114,37 @@ class Location {
         return assist.getDateString(d);
     }
 
+    function calculateDistance(newLat, newLng, oldLat, oldLng) {
+        // NOTE: This calculation is an approximation for distance - it doesn't take into 
+        // account altitude or the exact curvature of the earth
+        local nLat = _convertToDecDegFloat(newLat);
+        local nLng = _convertToDecDegFloat(newLng);
+
+        local oLat = _convertToDecDegFloat(oldLat);
+        local oLng = _convertToDecDegFloat(oldLng);
+
+        local new  = _getCartesianCoods(nLat, nLng);
+        local prev = _getCartesianCoods(oLat, oLng);
+        return math.sqrt((new.x - prev.x) * (new.x - prev.x) + (new.y - prev.y) * (new.y - prev.y) + (new.z - prev.z) * (new.z - prev.z));
+    }
+
+    function _convertToDecDegFloat(raw) {
+        return raw / 10000000 + math.abs(raw % 10000000);
+    }
+
+    function _getCartesianCoods(lat, lng) {
+        local latRad = lat * PI / 180;
+        local lngRad = lng * PI / 180;
+        local cosLat = math.cos(latRad);
+        local result = {};
+        
+        result.x <- cosLat * math.sin(lngRad);
+        result.y <- math.sin(latRad);
+        result.z <- cosLat * math.cos(lngRad);
+        
+        return result;
+    }
+
     function _onNavMsg(payload) {
         // This will trigger on every msg, so don't log message unless you need to debug something
         // ::debug("In NAV_PVT msg handler...");
@@ -207,11 +238,12 @@ class Location {
             gpsFix.secToFix <- fixTime;
             gpsFix.fixType <- fixType;
             gpsFix.numSats <- payload.numSV;
-            gpsFix.lon <- payload.lon;
+            gpsFix.lng <- payload.lon;
             gpsFix.lat <- payload.lat;
             gpsFix.time <- timeStr;
             gpsFix.accuracy <- _getAccuracy(payload.hAcc);
 
+            // If we have a callback check accuracy
             if (onAccFix != null) _checkAccuracy();
         } else {
             // This will trigger on every message, so don't log message unless you are debugging

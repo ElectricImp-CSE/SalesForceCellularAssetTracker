@@ -92,11 +92,25 @@ class Location {
     }
 
     function writeAssistMsgs(msgs, onDone = null) {
-        assist.writeAssistNow(msgs, onDone);
+        if (typeof msgs == "blob") {
+            assist.writeAssistNow(msgs, onDone);
+        } else {
+            // Format error like those returned from UBLOX 
+            local err = {
+                "error"    : "Unexpected assist now messages. Aborting write to UBLOX", 
+                "payload"  : msgs,
+                "type"     : 0, 
+                "infoCode" : 6  
+            }
+            ::debug(typeof msgs);
+            onDone([err]);
+        }
     }
 
     // Parameter is the table returned by date
     function getAssistDateFileName(d = null) {
+        // If date is null getDateString will call imp API date()
+        // and use that to create a date string for today
         return assist.getDateString(d);
     }
 

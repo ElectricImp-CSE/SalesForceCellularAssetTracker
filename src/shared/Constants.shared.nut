@@ -27,3 +27,9 @@
 // Messaging Names
 const MM_ASSIST = "assist";
 const MM_REPORT = "report";
+
+// Assist Now Shared Message Types
+enum ASSIST_TYPE {
+    OFFLINE,
+    ONLINE
+}

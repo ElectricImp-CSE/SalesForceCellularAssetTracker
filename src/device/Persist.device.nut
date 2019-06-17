@@ -27,9 +27,10 @@
 // NOTE: Assist messages will just be stored by date, so not 
 // all file names are stored in this enum.
 enum PERSIST_FILE_NAMES {
-    WAKE_TIME     = "wake", 
-    REPORT_TIME   = "report", 
-    LOCATION      = "loc"
+    WAKE_TIME              = "wake", 
+    REPORT_TIME            = "report", 
+    LOCATION               = "loc",
+    OFFLINE_ASSIST_CHECKED = "offAssistChecked"
 }
 
 // Manages Persistant Storage  
@@ -37,11 +38,12 @@ enum PERSIST_FILE_NAMES {
 // Initializes: SPIFlashFileSystem Libraries
 class Persist {
 
-    _sffs      = null;
+    _sffs                = null;
 
-    reportTime   = null;
-    wakeTime     = null;
-    location     = null;
+    reportTime           = null;
+    wakeTime             = null;
+    location             = null;
+    offlineAssistChecked = null;
 
     // Pass in optional flag to bypass persistant storage
     // Use optional flag if applicaton is not putting the device to sleep
@@ -118,6 +120,23 @@ class Persist {
         return msgs;
     }
 
+    function getOfflineAssestChecked() {
+        // If we have a local copy, return the local copy
+        if (offlineAssistChecked != null) return offlineAssistChecked;
+
+         // Try to get report time from SPI, store a local copy
+        if (_sffs.fileExists(PERSIST_FILE_NAMES.OFFLINE_ASSIST_CHECKED)) {
+            local file = _sffs.open(PERSIST_FILE_NAMES.OFFLINE_ASSIST_CHECKED, "r");
+            local rt = file.read();
+            file.close();
+            rt.seek(0, 'b');
+            offlineAssistChecked = rt;
+        }
+        
+        // Return offlineAssistChecked or null if it is not found
+        return offlineAssistChecked;;
+    }
+
     function setWakeTime(newTime, storeToSPI = true) {
         // Only update if timestamp has changed
         if (wakeTime == newTime) return;
@@ -181,9 +200,33 @@ class Persist {
         }
     }
 
+    function setOfflineAssistChecked(newTime, storeToSPI) {
+        if (offlineAssistChecked == newTime) return;
+
+        // Erase outdated report time
+        if (_sffs.fileExists(PERSIST_FILE_NAMES.OFFLINE_ASSIST_CHECKED)) {
+            _sffs.eraseFile(PERSIST_FILE_NAMES.OFFLINE_ASSIST_CHECKED)
+        }
+
+        // Update local and stored report time with the new time
+        offlineAssistChecked = newTime;
+        
+        if (storeToSPI) {
+            local file = _sffs.open(PERSIST_FILE_NAMES.OFFLINE_ASSIST_CHECKED, "w");
+            file.write(_serializeTimestamp(offlineAssistChecked));
+            file.close();
+            ::debug("Report time stored: " + offlineAssistChecked);
+        }
+    }
+
     // Takes a table of assist messages, where table slots are date strings
     // NOTE: these date strings will be used as file names
     function storeAssist(msgsByDate) {
+        // TODO: May want to optimize erases to happen when it won't keep device awake
+        // Erase old messages
+        _eraseStaleAssistMsgs();
+
+        // Store new messages
         foreach(day, msgs in msgsByDate) {
             // TODO: erase all stale messages as well as today's
             // If day exists, delete it as new data will be fresher
@@ -213,6 +256,50 @@ class Persist {
         return b;
     }
 
-    // TODO: Create a method that erases stale assist messages
+    function _eraseStaleAssistMsgs() {
+        try {
+            local files = _sffs.getFileList();
+            foreach(file in files) {
+                local name = file.fname;
+                ::debug("SFFS file name: " + name);
+
+                // Find assist files for dates that have already passed
+                if (name != PERSIST_FILE_NAMES.WAKE_TIME &&
+                    name != PERSIST_FILE_NAMES.REPORT_TIME && 
+                    name != PERSIST_FILE_NAMES.LOCATION &&
+                    name != PERSIST_FILE_NAMES.OFFLINE_ASSIST_CHECKED &&
+                    _isStale(name)) {
+                        ::debug("SFFS file name: " + name);
+                        // Erase old assist message
+                        _sffs.eraseFile(name);
+                } 
+            }
+        } catch (e) {
+            ::error("Error erasing old assist messages: " + e);
+        }
+    }
+
+    function _isStale(name) {
+        local today = date();
+        local year  = today.year;   
+        local month = today.month + 1;  // date() month returns integer 0-11
+        local day   = today.day;  
+
+        // File name/Date string YYYYMMDD
+        local fyear  = name.slice(0, 4).tointeger();
+        local fmonth = name.slice(4, 6).tointeger();
+        local fday   = name.slice(6).tointeger();
+
+        // Check year
+        if (fyear > year) return false;
+        if (fyear < year) return true;
+
+        // Year is the same, Check month
+        if (fmonth > month) return false;
+        if (fmonth < month) return true;
+
+        // Year and month are the same, Check day
+        return (fday < day);
+    }
 
 }

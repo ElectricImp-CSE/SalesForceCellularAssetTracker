@@ -59,10 +59,11 @@ class Location {
     function getOfflineAssist(onResp) {
         local assistOfflineParams = {
             "gnss"   : ["gps", "glo"],
-            "period" : 1,
+            "period" : 1,               // Num of weeks 1-5
             "days"   : 3
         };
 
+        // Data is updated 1-2X a day
         assist.requestOffline(assistOfflineParams, function(err, resp) {
             local assistData = null;
             if (err != null) {

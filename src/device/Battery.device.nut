@@ -40,8 +40,8 @@ const FG_RECOVERY_V       = 3.88;   // V
 const BATT_STATUS_CHECK_TIMEOUT = 0.5;
 
 // Manages Battery Monitoring  
-// Dependencies: MAX17055, BQ25895M (may configure sensor i2c) Libraries
-// Initializes: MAX17055, BQ25895M Libraries
+// Dependencies: MAX17055, BQ25895 (may configure sensor i2c) Libraries
+// Initializes: MAX17055, BQ25895 Libraries
 class Battery {
     
     charger = null;
@@ -52,11 +52,11 @@ class Battery {
     constructor(configureI2C) {
         if (configureI2C) SENSOR_I2C.configure(CLOCK_SPEED_400_KHZ);
 
-        charger = BQ25895M(SENSOR_I2C, BATT_CHGR_ADDR);
+        charger = BQ25895(SENSOR_I2C, BATT_CHGR_ADDR);
         fg = MAX17055(SENSOR_I2C, FUEL_GAUGE_ADDR);
 
-        // Charger default to: 4.352V and 2048mA
-        charger.enable(BATT_CHARGE_VOLTAGE, BATT_CURR_LIMIT);
+        // Charger default to: 4.208V and 2048mA
+        charger.enable();
 
         local fgSettings = {
             "desCap"       : FG_DES_CAP,

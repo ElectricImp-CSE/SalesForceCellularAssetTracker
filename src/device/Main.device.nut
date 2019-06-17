@@ -57,27 +57,29 @@
 // NOTE: These timings have an impact on battery life. Current setting are not 
 // battery efficient.
 // Wake every x seconds to check if report should be sent (location changed, etc)
-const CHECK_IN_TIME_SEC  = 10;
+const CHECK_IN_TIME_SEC    = 10;
 // Wake every x seconds to send a report, regaurdless of check results
-const REPORT_TIME_SEC    = 60 * 5; 
+const REPORT_TIME_SEC      = 300 // 60 * 5; 
 
 // Accuracy of GPS fix in meters
-const LOCATION_ACCURACY  = 10;
+const LOCATION_ACCURACY    = 10;
+const LOCATION_TIMEOUT_SEC = 70; 
 // Constant used to validate imp's timestamp (must be a year greater than 2000)
-const VALID_TS_YEAR      = 2019;
+const VALID_TS_YEAR        = 2019;
 
 class MainController {
 
     // Class instances
-    cm      = null;
-    mm      = null;
-    loc     = null;
-    env     = null;
-    battery = null;
-    persist = null;
+    cm         = null;
+    mm         = null;
+    loc        = null;
+    env        = null;
+    battery    = null;
+    persist    = null;
 
     // Variables
-    report  = null;
+    report     = null;
+    storeToSpi = null; 
 
     constructor() {
         // Initialize ConnectionManager Library - this sets the connection policy, so divice can
@@ -99,12 +101,12 @@ class MainController {
 
         // Initialize storage class
         persist = Persist();
+        // NOTE: If we do not plan to sleep this can be set to true or the variable can be dropped
+        storeToSpi = false;
 
         // Initialize Message Manager for agent/device communication
         mm = MessageManager({"connectionManager" : cm});
-
-        // Set default report value
-        report = {};
+        mm.onTimeout(mmOnTimeout.bindenv(this));
 
         // Start application
         onBoot();
@@ -127,6 +129,12 @@ class MainController {
         scheduleNextCheckIn();
     }
 
+    // MM onFail handler for assist messages
+    function mmOnAssistFail(msg, err, retry) {
+        ::error("Request for assist messages failed, retrying");
+        retry();
+    }
+
     // MM onAck handler for report
     function mmOnReportAck(msg) {
         // Report successfully sent
@@ -141,11 +149,35 @@ class MainController {
 
     // MM onReply handler for assist messages
     function mmOnAssist(msg, response) {
+        if (response == null) {
+            ::debug("Didn't receive any Assist messages from agent.");
+            return;
+        }
+
         ::debug("Assist messages received from agent. Writing to u-blox");
         // Make sure location class is initialized
         if (loc == null) loc = Location(); 
-        // Response contains assist messages from cloud.
-        loc.writeAssistMsgs(response, onAssistMsgDone.bindenv(this));
+        // Response contains assist messages from cloud
+        local assistMsgs = response;
+
+        if (msg.payload.data == ASSIST_TYPE.OFFLINE) {
+            // Get today's date string/file name
+            local todayFileName = loc.getAssistDateFileName();
+
+            // Store all offline assist messages by date
+            persist.storeAssist(response);
+
+            // Select today's offline assist messages only
+            if (todayFileName in response) {
+                assistMsgs = response.todayFileName;
+            } else {
+                ::debug("No offline assist messges for today. No messages written to UBLOX.");
+                return;
+            }
+        } 
+
+        // Write assist messages to UBLOX module
+        loc.writeAssistMsgs(assistMsgs, onAssistMsgDone.bindenv(this));
     }
 
     // Connection & Connection Flow Handlers
@@ -153,39 +185,42 @@ class MainController {
 
     // Start application
     function onBoot() {
-        // Trigger async tasks
+        // Set default report value
+        report = {};
+        // Set i2c clock rate
         SENSOR_I2C.configure(CLOCK_SPEED_400_KHZ);
+
+        // Get offline assist messages
+        reqOfflineAssist();
+
+        // Trigger async tasks
         local tasks = [getLocation(), getBattStatus(), getTempHumid()];
         Promise.serial(tasks)
             .then(function(msg) {
                 // Persist raw location data so we can determine location changes on next check-in
                 if ("fix" in report && "lat" in report.fix && "lng" in report.fix) {
-                    persist.setLocation(report.fix.lat, report.fix.lng);
+                    persist.setLocation(report.fix.lat, report.fix.lng, storeToSpi);
                 }
 
                 // NOTE: Report ack/timeout/fail handler(s) will schedule next check-in
                 sendReport();
             }.bindenv(this));
-
-        // Get online & offline assist messages
-        if (cm.isConnected()) {
-            // mm.send()
-            // mm.send()
-        }
-
     }
 
     function onCheckIn() {
+        ::debug("Made it to first check-in!!!");
+        // TODO: Update this once onBoot is working!!!
+
         // Take readings (location, temp, batt)
-        // If online 
-            // Get online assist
-            // Refresh offline assist messages (if needed)
+        // If (when) online 
+            // Refresh offline assist messages (if needed - limit to every 12h)
         // Check if should report (location change, low battery)
             // Send report
             // or schedule next check-in
     }
 
     function scheduleNextCheckIn() {
+        ::debug("Scheduling next check-in: " + (time() + CHECK_IN_TIME_SEC));
         // TODO: update with power down/sleep logic to conserve battery
         imp.wakeup(CHECK_IN_TIME_SEC, onCheckIn.bindenv(this));
     }
@@ -193,10 +228,37 @@ class MainController {
     // Actions
     // -------------------------------------------------------------
 
+    // Send a request to agent for offline assist messages
+    function reqOfflineAssist() {
+        if (cm.isConnected()) {
+            // We don't have a fix, request assist online data
+            ::debug("Requesting offline assist messages from agent/Assist Now.");
+            local mmHandlers = {
+                "onReply" : mmOnAssist.bindenv(this),
+                "onFail"  : mmOnAssistFail.bindenv(this)
+            };
+            mm.send(MM_ASSIST, ASSIST_TYPE.OFFLINE, mmHandlers);
+        }
+        // TODO: Add async task to track when reply and write to Ublox are completed
+    }
+
+    // Send a request to agent for onlne assist messages
+    function reqOnlineAssist() {
+        if (cm.isConnected()) {
+            // We don't have a fix, request assist online data
+            ::debug("Requesting online assist messages from agnet/Assist Now.");
+            local mmHandlers = {
+                "onReply" : mmOnAssist.bindenv(this),
+                "onFail"  : mmOnAssistFail.bindenv(this)
+            };
+            mm.send(MM_ASSIST, ASSIST_TYPE.ONLINE, mmHandlers);
+        }
+    }
+
     // Create and send device status report to agent
     function sendReport() {
         // Add timestamp to report
-        local report.ts <- time();
+        report.ts <- time();
 
         // Send to agent
         ::debug("Sending device status report to agent");
@@ -225,6 +287,15 @@ class MainController {
                 if ("lng" in gpxFix) report.lng = UbxMsgParser.toDecimalDegreeString(gpxFix.lng);
                 report.fix <- gpxFix;
                 return resolve("GPS location done");
+            }.bindenv(this));
+
+            //Configure Location Timeout
+            imp.wakeup(LOCATION_TIMEOUT_SEC, function() {
+                ::debug("Location request timed out. Disabling GPS power");
+                PWR_GATE_EN.write(0);
+
+                // NOTE: Report will not include GPS location
+                return resolve("GPS location request timed out");
             }.bindenv(this));
         }.bindenv(this))
     }
@@ -255,12 +326,25 @@ class MainController {
             env.getTempHumid(function(reading) {
                 if (reading == null) return resolve("Temperature/Humidity reading failed.");
                 // Stores temp and humid readings for use in report
-                if ("temperature" in reading) report.temp = reading.temperature;
-                if ("humidity" in reading) report.humid = reading.humidity;
+                if ("temperature" in reading) report.temp <- reading.temperature;
+                if ("humidity" in reading) report.humid <- reading.humidity;
                 ::debug(format("Temperature/Humidity reading complete, temp: %f, humidity: %f", reading.temperature, reading.humidity));
                 return resolve("Temperature/Humidity reading complete");
             }.bindenv(this))
         }.bindenv(this))
+    }
+
+    function updateReportingTime() {
+        local now = time();
+
+	    // If report timer expired set based on current time 
+        // TODO: When sleep/power conserve code updates - offset based on boot time
+        local reportTime = now + REPORT_TIME_SEC;
+
+        // Update report time if it has changed
+        persist.setReportTime(reportTime, false);
+
+        ::debug("Next report time " + reportTime + ", in " + (reportTime - now) + "s");
     }
 
     // Async Action Handlers
@@ -283,6 +367,8 @@ class MainController {
 
     // Returns boolean, checks for event(s) or if report time has passed
     function shouldReport() {
+        // TODO: updat this logic for current application!!!
+
         // Check for events
         // Note: TODO check if location has changed
         // local haveMoved = persist.getMoveDetected();

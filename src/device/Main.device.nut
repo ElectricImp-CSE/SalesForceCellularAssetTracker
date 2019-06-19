@@ -57,7 +57,7 @@
 // NOTE: These timings have an impact on battery life. Current setting are not 
 // battery efficient.
 // Wake every x seconds to check if report should be sent (location changed, etc)
-const CHECK_IN_TIME_SEC      = 10;
+const CHECK_IN_TIME_SEC      = 30;
 // Wake every x seconds to send a report, regaurdless of check results
 const REPORT_TIME_SEC        = 300 // 60 * 5; 
 
@@ -70,7 +70,7 @@ const VALID_TS_YEAR          = 2019;
 // Low battery alert threshold in percentage
 const BATTERY_LOW_THRESH     = 10;
 // Distance threshold in meters
-const DISTANCE_THRESHOLD_M   = 50;
+const DISTANCE_THRESHOLD_M   = 20;
 
 class MainController {
 
@@ -78,8 +78,6 @@ class MainController {
     cm         = null;
     mm         = null;
     loc        = null;
-    env        = null;
-    battery    = null;
     persist    = null;
 
     // Variables
@@ -145,9 +143,10 @@ class MainController {
         // Report successfully sent
         ::debug("Report ACK received from agent");
 
-        // Reset report table
+        // Reset report & GPS table
         report = {};
-        
+        loc.clearGPSFix();
+
         updateReportingTime();
         scheduleNextCheckIn();
     }
@@ -200,11 +199,8 @@ class MainController {
         // Set i2c clock rate
         SENSOR_I2C.configure(CLOCK_SPEED_400_KHZ);
 
-        // Get assist messages
-        reqOfflineAssist();
-        reqOnlineAssist();
-
         // Trigger async tasks
+        // NOTE: getLocation() will initialize/re-initialize location class
         local tasks = [getLocation(), getBattStatus(), getTempHumid()];
         Promise.serial(tasks)
             .then(function(msg) {
@@ -216,16 +212,18 @@ class MainController {
                 // NOTE: Report ack/timeout/fail handler(s) will schedule next check-in
                 sendReport();
             }.bindenv(this));
+
+        // Get assist messages
+        // NOTE: Order matters, best to let getLocation() initialize location class first 
+        reqOfflineAssist();
+        reqOnlineAssist();
     }
 
     function onCheckIn() {
         ::debug("Starting check-in flow...");
 
-        // Get offline assist messages if needed
-        // TODO: Move to connection flow if sleep/wake flow implemented.
-        reqOfflineAssist();
-
         // Trigger async tasks
+        // NOTE: getLocation() will initialize/re-initialize location class
         local tasks = [getLocation(), getBattStatus(), getTempHumid()];
         Promise.serial(tasks)
             .then(function(msg) {
@@ -241,6 +239,11 @@ class MainController {
                     scheduleNextCheckIn();
                 }
             }.bindenv(this));
+
+        // Get offline assist messages if needed
+        // TODO: Move to connection flow if sleep/wake flow implemented.
+        reqOfflineAssist();
+        reqOnlineAssist();
     }
 
     function scheduleNextCheckIn() {
@@ -271,7 +274,7 @@ class MainController {
     function reqOnlineAssist() {
         if (cm.isConnected()) {
             // We don't have a fix, request assist online data
-            ::debug("Requesting online assist messages from agnet/Assist Now.");
+            ::debug("Requesting online assist messages from agent/Assist Now.");
             local mmHandlers = {
                 "onReply" : mmOnAssist.bindenv(this),
                 "onFail"  : mmOnAssistFail.bindenv(this)
@@ -300,10 +303,17 @@ class MainController {
         return Promise(function(resolve, reject) {
             // Power up GPS
             PWR_GATE_EN.write(1);
-            if (loc == null) loc = Location();
+            // Enable UBlox 
+            (loc == null) ? loc = Location() : loc.init();
+
+            local locationTimer = null;
+
             loc.getLocation(LOCATION_ACCURACY, function(gpxFix) {
                 ::debug("Got fix. Disabling GPS power");
                 PWR_GATE_EN.write(0);
+
+                // Cancel timeout timer
+                if (locationTimer != null) imp.cancelwakeup(locationTimer);
 
                 // Store fix data for report
                 // NOTE: Keep both raw (so we can store easily to SPI) and formatted 
@@ -312,11 +322,13 @@ class MainController {
                 if ("lng" in gpxFix) report.lng <- UbxMsgParser.toDecimalDegreeString(gpxFix.lng);
                 report.fix <- gpxFix;
 
+                ::debug(format("GPS reading: Latitude %s, Longitude %s", report.lat, report.lng));
+
                 return resolve("GPS location done");
             }.bindenv(this));
 
-            //Configure Location Timeout
-            imp.wakeup(LOCATION_TIMEOUT_SEC, function() {
+            // Configure Location Timeout
+            locationTimer = imp.wakeup(LOCATION_TIMEOUT_SEC, function() {
                 ::debug("Location request timed out. Disabling GPS power");
                 PWR_GATE_EN.write(0);
 
@@ -331,7 +343,7 @@ class MainController {
     function getBattStatus() {
         return Promise(function(resolve, reject) {
             // Initialize Battery Monitor, don't configure i2c
-            if (battery == null) battery = Battery(false);
+            local battery = Battery(false);
             battery.getStatus(function(status) {
                 ::debug("Get battery status complete:")
                 ::debug("Remaining cell capacity: " + status.capacity + "mAh");
@@ -348,7 +360,7 @@ class MainController {
     function getTempHumid() {
         return Promise(function(resolve, reject) {
             // Initialize Environmental Monitor, don't configure i2c
-            if (env == null)  env = Env(false);
+            local env = Env(false);
             env.getTempHumid(function(reading) {
                 if (reading == null) return resolve("Temperature/Humidity reading failed.");
                 // Stores temp and humid readings for use in report
@@ -421,7 +433,10 @@ class MainController {
                 persist.setLocation(lat, lng, false);
 
                 // Report if we have moved more than the minimum distance
-                if (dist >= DISTANCE_THRESHOLD_M) return true;
+                if (dist >= DISTANCE_THRESHOLD_M) {
+                    report.locationChanged <- true;
+                    return true;
+                }
             }
         }
 

@@ -27,13 +27,21 @@
 // Libraries 
 #require "MessageManager.lib.nut:2.4.0"
 #require "UBloxAssistNow.agent.lib.nut:1.0.0"
-// TODO: ADD YOUR CLOUD SERVICE LIBRARY HERE
+#require "OAuth2.agent.lib.nut:2.0.1"
+#require "Salesforce.agent.lib.nut:2.0.1"
+// #require "BayeuxClient.agent.lib.nut:1.0.0"
+#require "Losant.agent.lib.nut:1.0.0"
 
 // Supporting files
 @include __PATH__ + "/../shared/Logger.shared.nut"
 @include __PATH__ + "/../shared/Constants.shared.nut"
-@include __PATH__ + "/Location.agent.nut"
+@include __PATH__ + "/SalesforceLibExt.agent.nut"
+@include __PATH__ + "/SalesforceOAuth2Device.agent.nut"
+@include __PATH__ + "/SalesforceOAuth2JWT.agent.nut"
 @include __PATH__ + "/Cloud.agent.nut"
+@include __PATH__ + "/LosantDash.agent.nut"
+@include __PATH__ + "/Location.agent.nut"
+
 
 // Main Application
 // -----------------------------------------------------------------------
@@ -43,6 +51,8 @@ class MainController {
     loc   = null;
     mm    = null;
     cloud = null;
+
+    lt    = null;
 
     constructor() {
         // Initialize Logger 
@@ -61,19 +71,41 @@ class MainController {
         mm.on(MM_ASSIST, getAssist.bindenv(this));
 
         // Initialize Cloud Service
-        // NOTE: Cloud service class is empty and will initialize an empty framework 
         cloud = Cloud();
+
+        // Quick map checker to verify location working as intended
+        lt = LosantTracker()
     }
 
     function processReport(msg, reply) {
         local report = msg.data;
 
-        ::debug("Recieved status update from devcie: ");
+        // Log status report from device
+        ::debug("Recieved status update from device: ");
+        ::debug("--------------------------------------------------------------");
         ::debug(http.jsonencode(report));
 
-        // Send device data to cloud service
-        // NOTE: Cloud service send is an empty function
+        if ("battStatus" in report && report.battStatus.percent <= 10) {
+            ::log("LOW BATTERY WARNING: " + report.battStatus.percent + " REMAINING.");
+        }
+
+        if ("fix" in report) {
+            local fix = report.fix;
+            ::debug("Location details: ");
+            ::debug("Fix time " + fix.time);
+            ::debug("Seconds to first fix: " + fix.secTo1stFix);
+            ::debug("Seconds to accurate fix: " + fix.secToFix);
+            ::debug("Fix type: " + getFixDescription(fix.fixType));
+            ::debug("Fix accuracy: " + fix.accuracy + " meters");
+            ::debug("Latitude: " + report.lat + ", Longitude: " + report.lng);
+        }
+        ::debug("--------------------------------------------------------------");
+
+        // Send device data to Salesforce service
         cloud.send(report);
+
+        // Send device data to Losant dashboard
+        lt.sendData(report);
     }
 
     function getAssist(msg, reply) {

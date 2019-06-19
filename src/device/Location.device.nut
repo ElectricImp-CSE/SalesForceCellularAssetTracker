@@ -42,26 +42,33 @@ enum FIX_TYPE {
 // Initializes: UBloxM8N, UBloxAssistNow(device)
 class Location {
     
-    ubx        = null;
-    assist     = null;
+    ubx         = null;
+    assist      = null;
 
-    gpsFix     = null;
-    accTarget  = null;
-    onAccFix   = null;
+    gpsFix      = null;
+    accTarget   = null;
+    onAccFix    = null;
 
-    bootGPSTime   = null;
+    bootGPSTime = null;
 
     constructor() {
-        bootGPSTime = hardware.millis();
+        // Allows us to re-initialize GPS after it loses power 
+        init();
+    }
 
-        ::debug("Configuring u-blox...");
+    function init() {
+        bootGPSTime = hardware.millis();
+        gpsFix      = null;
+
         ubx = UBloxM8N(GPS_UART);
+        assist = UBloxAssistNow(ubx);
+
         local ubxSettings = {
             "baudRate"     : GPS_UART_BAUDRATE,
             "outputMode"   : UBLOX_M8N_MSG_MODE.UBX_ONLY,
             "inputMode"    : UBLOX_M8N_MSG_MODE.BOTH
         }
-        
+
         // Register handlers with debug logging only if needed
         if (Logger.level <= LOG_LEVEL.DEBUG) {
             // Register command ACK and NAK callbacks
@@ -71,9 +78,9 @@ class Location {
             ubxSettings.defaultOnMsg <- _onMessage.bindenv(this);
         }
 
+        ::debug("Configuring u-blox...");
         ubx.configure(ubxSettings);
-        assist = UBloxAssistNow(ubx);
-        
+
         ::debug("Enable navigation messages...");
         // Enable Position Velocity Time Solution messages
         ubx.enableUbxMsg(UBX_MSG_PARSER_CLASS_MSG_ID.NAV_PVT, LOCATION_CHECK_SEC, _onNavMsg.bindenv(this));
@@ -89,6 +96,10 @@ class Location {
             // Write a time assist packet to help get fix
             assist.writeUtcTimeAssist();
         }
+    }
+
+    function clearGPSFix() {
+        gpsFix = null;
     }
 
     function writeAssistMsgs(msgs, onDone = null) {
@@ -125,11 +136,21 @@ class Location {
 
         local new  = _getCartesianCoods(nLat, nLng);
         local prev = _getCartesianCoods(oLat, oLng);
-        return math.sqrt((new.x - prev.x) * (new.x - prev.x) + (new.y - prev.y) * (new.y - prev.y) + (new.z - prev.z) * (new.z - prev.z));
+        
+        local dist = math.sqrt((new.x - prev.x) * (new.x - prev.x) + (new.y - prev.y) * (new.y - prev.y) + (new.z - prev.z) * (new.z - prev.z));
+
+        // Log calculations
+        ::debug("New co-ord");
+        foreach(k, v in new) { ::debug(k + ": " + v); }
+        ::debug("Old co-ord");
+        foreach(k, v in prev) { ::debug(k + ": " + v); }
+        ::debug("Device traveled " + dist + " meters");
+        
+        return dist;
     }
 
     function _convertToDecDegFloat(raw) {
-        return raw / 10000000 + math.abs(raw % 10000000);
+        return raw / 10000000.0;
     }
 
     function _getCartesianCoods(lat, lng) {

@@ -52,7 +52,7 @@ class MainController {
     mm    = null;
     cloud = null;
 
-    lt    = null;
+    // lt    = null;
 
     constructor() {
         // Initialize Logger 
@@ -73,8 +73,8 @@ class MainController {
         // Initialize Cloud Service
         cloud = Cloud();
 
-        // Quick map checker to verify location working as intended
-        lt = LosantTracker()
+        // // Quick map checker to verify location working as intended
+        // lt = LosantTracker()
     }
 
     function processReport(msg, reply) {
@@ -104,8 +104,8 @@ class MainController {
         // Send device data to Salesforce service
         cloud.send(report);
 
-        // Send device data to Losant dashboard
-        lt.sendData(report);
+        // // Send device data to Losant dashboard
+        // lt.sendData(report);
     }
 
     function getAssist(msg, reply) {

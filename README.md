@@ -139,7 +139,7 @@ Create a permission set and assign pre-authorized users for this connected app.
 
 Sign up for an Electric Imp account [here](https://impcentral.electricimp.com), then follow the instructions in this [getting started guide](https://developer.electricimp.com/gettingstarted/impc001breakoutboard) to connect your impC001 using blinkUp. Make a note of your Device Id. You will want to add this device to your project/device group.
 
-This project has been written using [VS code plug-in](https://github.com/electricimp/vscode). All configuration settings and pre-processed files have been excluded. Follow the instructions [here](https://github.com/electricimp/vscode#installation) to install the plug-in and create a project. 
+This project has been written using [VS code plug-in](https://github.com/electricimp/vscode). All configuration settings and pre-processed files have been excluded, so sensitive keys are not exposed. Follow the instructions [here](https://github.com/electricimp/vscode#installation) to install the plug-in and create a project. 
 
 Replace the **src** folder in your newly created project with the **src** folder found in this repository
 

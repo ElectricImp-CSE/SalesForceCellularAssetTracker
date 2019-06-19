@@ -36,8 +36,10 @@ const SF_INSTANCE_URL     = "https://eimp-recipe-test.my.salesforce.com";
 const SF_VERSION          = "v46.0";
 
 // Manages Cloud Service Communications  
-// Dependencies: YOUR CLOUD SERVICE LIBRARY 
-// Initializes: YOUR CLOUD SERVICE LIBRARY
+// Dependencies: Salesforce library, OAuth2 library, SalesforceLibExt, 
+// Saleforce OAuth2JWT or Saleforce OAuth2Device
+// Initializes: Salesforce library, OAuth2 library, SalesforceLibExt, 
+// Saleforce OAuth2JWT or Saleforce OAuth2Device
 class Cloud {
 
     _force      = null;
@@ -48,14 +50,19 @@ class Cloud {
     _impDeviceId = null;
 
     constructor() {
+        // NOTE: Current code only supports sending events to Salesforce
+
         _impDeviceId = imp.configparams.deviceid;
         _sendUrl = format("sobjects/%s/", SF_EVENT_NAME);
 
         // Select Device or JWT Authentication
         _oauth = SalesForceOAuth2JWT();
+        // Initialize Saleforce library 
         _force = SalesforceExt(SF_VERSION);
+        // Set base url for sending events
         _force.setInstanceUrl(SF_INSTANCE_URL);
 
+        // Authorize device/get token
         _oauth.getToken(function(err, token) {
             if (err) {
                 ::error("Unable to log into salesforce: " + err);
@@ -89,10 +96,10 @@ class Cloud {
 
     function _formatReport(rawReport) {
         local report = { [SF_EVENT_DEV_ID] = _impDeviceId };
-        if ("humid" in rawReport) report[SF_EVENT_DATA_HUMID] <- rawReport.humid;
-        if ("temp" in rawReport)  report[SF_EVENT_DATA_TEMP]  <- rawReport.temp;
-        if ("lat" in rawReport)   report[SF_EVENT_DATA_LAT]   <- rawReport.lat.tofloat();
-        if ("lng" in rawReport)   report[SF_EVENT_DATA_LNG]   <- rawReport.lng.tofloat();
+        report[SF_EVENT_DATA_HUMID] <- ("humid" in rawReport) ? rawReport.humid : 0;
+        report[SF_EVENT_DATA_TEMP]  <- ("temp" in rawReport) ? rawReport.temp : 0;
+        report[SF_EVENT_DATA_LAT]   <- ("lat" in rawReport) ? rawReport.lat.tofloat() : 0;
+        report[SF_EVENT_DATA_LNG]   <- ("lng" in rawReport) ? rawReport.lng.tofloat() : 0;
 
         return http.jsonencode(report);
 

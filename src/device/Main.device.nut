@@ -55,11 +55,11 @@
 // -----------------------------------------------------------------------
 
 // NOTE: These timings have an impact on battery life. Current setting are not 
-// battery efficient.
+// battery efficient. 
 // Wake every x seconds to check if report should be sent (location changed, etc)
-const CHECK_IN_TIME_SEC      = 30;
+const CHECK_IN_TIME_SEC      = 30; // 20
 // Wake every x seconds to send a report, regaurdless of check results
-const REPORT_TIME_SEC        = 300 // 60 * 5; 
+const REPORT_TIME_SEC        = 300; // 300; 
 
 // Accuracy of GPS fix in meters
 const LOCATION_ACCURACY      = 10;
@@ -304,6 +304,11 @@ class MainController {
             // Power up GPS
             PWR_GATE_EN.write(1);
             // Enable UBlox 
+            // Note: If device wakes from sleep just initialize 
+            // Location class, however if device continues to run
+            // after PWR_GATE_EN disables GPS UBX uart needs to be 
+            // reconfigured, so call init method to re-initialize UBLOX 
+            // libs. 
             (loc == null) ? loc = Location() : loc.init();
 
             local locationTimer = null;

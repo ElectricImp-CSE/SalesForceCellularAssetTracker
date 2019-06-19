@@ -28,11 +28,10 @@
 // Dependencies: Salesforce library 
 class SalesforceExt extends Salesforce {
 
-    _token      = null;
-    _sfVersion  = null;
+    _token = null;
 
     constructor(sfVersion = null) {
-        if (sfVersion != null) _sfVersion = sfVersion;
+        if (sfVersion != null) _version = sfVersion;
     }
 
     // Function to set credentials (used to be done in constructor), only needed if 

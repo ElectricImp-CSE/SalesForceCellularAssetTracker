@@ -68,11 +68,12 @@ class Cloud {
 
     function send(data) {
         local body = _formatReport(data);
-
         if (!_force.isLoggedIn()) {
             ::error("Not logged into Salesforce. Unable to send data: ");
             ::debug(body);
         } else {
+            ::debug("Sending data to Salesforce:");
+            ::debug(body);
             _force.request("POST", _sendUrl, body, _onReportSent.bindenv(this)); 
         }        
     }

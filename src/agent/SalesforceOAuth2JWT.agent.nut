@@ -63,3 +63,6 @@ class SalesForceOAuth2JWT {
         }
     }
 }
+
+// Setup step by step instructions here:
+// https://trailhead.salesforce.com/en/content/learn/modules/sfdx_travis_ci/sfdx_travis_ci_connected_app

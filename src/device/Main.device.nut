@@ -227,11 +227,6 @@ class MainController {
         local tasks = [getLocation(), getBattStatus(), getTempHumid()];
         Promise.serial(tasks)
             .then(function(msg) {
-                // Persist raw location data so we can determine location changes on next check-in
-                if ("fix" in report && "lat" in report.fix && "lng" in report.fix) {
-                    persist.setLocation(report.fix.lat, report.fix.lng, storeToSpi);
-                }
-
                 if (shouldReport()) {
                     // NOTE: Report ack/timeout/fail handler(s) will schedule next check-in
                     sendReport();
@@ -426,16 +421,23 @@ class MainController {
             if (lastLoc == null) {
                 // We have not reported a location yet, so send a report
                 // Update stored lat and lng
-                persist.setLocation(lat, lng, false);
+                persist.setLocation(lat, lng, storeToSpi);
                 return true;
             } else {
+                ::debug("Got location in report. Calculating distance.");
+                ::debug("Last location: lat " + lastLoc.lat + ", lng " + lastLoc.lng);
+
                 local lat = report.fix.lat;
                 local lng = report.fix.lng;
+
+                ::debug("New location: lat " + lat + ", lng " + lng);
+
                 // Param order: new lat, new lng, old lat old lng
                 local dist = loc.calculateDistance(lat, lng, lastLoc.lat, lastLoc.lng);
+                report.dist <- dist;
 
                 // Update stored lat and lng
-                persist.setLocation(lat, lng, false);
+                persist.setLocation(lat, lng, storeToSpi);
 
                 // Report if we have moved more than the minimum distance
                 if (dist >= DISTANCE_THRESHOLD_M) {

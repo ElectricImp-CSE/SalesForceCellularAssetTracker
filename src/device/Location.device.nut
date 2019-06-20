@@ -141,9 +141,9 @@ class Location {
 
         // Log calculations
         ::debug("New co-ord");
-        foreach(k, v in new) { ::debug(k + ": " + v); }
+        foreach(k, v in new) { ::debug(format("%s: %.7f", k, v)); }
         ::debug("Old co-ord");
-        foreach(k, v in prev) { ::debug(k + ": " + v); }
+        foreach(k, v in prev) { ::debug(format("%s: %.7f", k, v)); }
         ::debug("Device traveled " + dist + " meters");
         
         return dist;

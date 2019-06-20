@@ -65,6 +65,7 @@ class LosantTracker {
         if ("temp" in data) payload.data.temperature <- data.temp;
         if ("humid" in data) payload.data.humidity <- data.humid;
         if ("lat" in data && "lng" in data) payload.data.location <- format("%s,%s", data.lat, data.lng);
+        if ("dist" in data) payload.data.distance <- data.dist; 
 
         ::debug("Sending device state to Losant:");
         ::debug(http.jsonencode(payload));
@@ -205,7 +206,11 @@ class LosantTracker {
             {
                 "name"     : "location",
                 "dataType" : "gps"
-            }
+            },
+            {
+                "name"     : "distance",
+                "dataType" : "number"
+            },
         ];
     }
 }

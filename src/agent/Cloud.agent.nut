@@ -55,8 +55,10 @@ class Cloud {
         _impDeviceId = imp.configparams.deviceid;
         _sendUrl = format("sobjects/%s/", SF_EVENT_NAME);
 
-        // Select Device or JWT Authentication
+        // // Select Device or JWT Authentication
         _oauth = SalesForceOAuth2JWT();
+        // _oauth = SalesForceOAuth2Device();
+
         // Initialize Saleforce library 
         _force = SalesforceExt(SF_VERSION);
         // Set base url for sending events

@@ -90,7 +90,10 @@ class MainController {
         // code starts running.
         // TODO: In production update CM_BLINK to NEVER to conserve battery power
         // TODO: Look into setting connection timeout (currently using default of 60s)
-        cm = ConnectionManager({ "blinkupBehavior": CM_BLINK_ALWAYS });
+        cm = ConnectionManager({ 
+            "blinkupBehavior" : CM_BLINK_ALWAYS, 
+            "retryOnTimeout"  : false
+        });
         imp.setsendbuffersize(8096);
 
         // Initialize Logger
@@ -322,7 +325,9 @@ class MainController {
                 if ("lng" in gpxFix) report.lng <- UbxMsgParser.toDecimalDegreeString(gpxFix.lng);
                 report.fix <- gpxFix;
 
-                ::debug(format("GPS reading: Latitude %s, Longitude %s", report.lat, report.lng));
+                if ("lat" in report && "lng" in report) {
+                    ::debug(format("GPS reading: Latitude %s, Longitude %s", report.lat, report.lng));
+                }
 
                 return resolve("GPS location done");
             }.bindenv(this));

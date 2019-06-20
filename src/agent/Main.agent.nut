@@ -38,6 +38,7 @@
 @include __PATH__ + "/SalesforceLibExt.agent.nut"
 @include __PATH__ + "/SalesforceOAuth2Device.agent.nut"
 @include __PATH__ + "/SalesforceOAuth2JWT.agent.nut"
+@include __PATH__ + "/OAuth2LibDeviceExt.agent.nut"
 @include __PATH__ + "/Cloud.agent.nut"
 @include __PATH__ + "/LosantDash.agent.nut"
 @include __PATH__ + "/Location.agent.nut"

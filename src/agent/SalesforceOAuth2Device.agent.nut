@@ -46,7 +46,7 @@ class SalesForceOAuth2Device {
             "grantType" : "device_code"
         }
 
-        client = OAuth2.DeviceFlow.Client(providerConfig, userConfig);
+        client = OAuth2LibDeviceExt(providerConfig, userConfig);
     }
 
     function getToken(cb) {
@@ -59,12 +59,14 @@ class SalesForceOAuth2Device {
             // Acquire a new access token
             local status = client.acquireAccessToken(
                 function(resp, err) {
-                    cb(err, newToken);
+                    cb(err, resp);
                 }.bindenv(this), 
                 function(url, code) {
+                    ::log("-----------------------------------------------------------------");
                     ::log("Salesforce: Authorization is pending. Please grant access");
                     ::log("URL: " + url);
                     ::log("Code: " + code);
+                    ::log("-----------------------------------------------------------------");
                 }.bindenv(this)
             );
 

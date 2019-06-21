@@ -39,6 +39,7 @@
 @include __PATH__ + "/SalesforceOAuth2Device.agent.nut"
 @include __PATH__ + "/SalesforceOAuth2JWT.agent.nut"
 @include __PATH__ + "/OAuth2LibDeviceExt.agent.nut"
+@include __PATH__ + "/Persist.agent.nut"
 @include __PATH__ + "/Cloud.agent.nut"
 @include __PATH__ + "/LosantDash.agent.nut"
 @include __PATH__ + "/Location.agent.nut"
@@ -49,17 +50,18 @@
 
 class MainController {
     
-    loc   = null;
-    mm    = null;
-    cloud = null;
+    loc     = null;
+    mm      = null;
+    cloud   = null;
+    persist = null;
 
-    lt    = null;
+    lt      = null;
 
     constructor() {
         // Initialize Logger 
         Logger.init(LOG_LEVEL.DEBUG);
 
-        ::debug("Agent started...");
+        ::debug("[Main] Agent started...");
 
         // Initialize Assist Now Location Helper
         loc = Location();
@@ -71,68 +73,72 @@ class MainController {
         mm.on(MM_REPORT, processReport.bindenv(this));
         mm.on(MM_ASSIST, getAssist.bindenv(this));
 
-        // Initialize Cloud Service
-        cloud = Cloud();
+        // Initialize persistant storage class
+        persist = Persist();
+
+        // Initialize Cloud Service, Supporting cloud service 
+        // classes/library extensions 
+        cloud = Cloud(persist);
 
         // // Quick map checker to verify location working as intended
-        lt = LosantTracker()
+        // lt = LosantTracker()
     }
 
     function processReport(msg, reply) {
         local report = msg.data;
 
         // Log status report from device
-        ::debug("Recieved status update from device: ");
+        ::debug("[Main] Recieved status update from device: ");
         ::debug("--------------------------------------------------------------");
         ::debug(http.jsonencode(report));
 
         if ("battStatus" in report && report.battStatus.percent <= 10) {
-            ::log("LOW BATTERY WARNING: " + report.battStatus.percent + " REMAINING.");
+            ::log("[Main] LOW BATTERY WARNING: " + report.battStatus.percent + " REMAINING.");
         }
 
         if ("fix" in report) {
             local fix = report.fix;
-            ::debug("Location details: ");
-            ::debug("Fix time " + fix.time);
-            ::debug("Seconds to first fix: " + fix.secTo1stFix);
-            ::debug("Seconds to accurate fix: " + fix.secToFix);
-            ::debug("Fix type: " + getFixDescription(fix.fixType));
-            ::debug("Fix accuracy: " + fix.accuracy + " meters");
-            ::debug("Latitude: " + report.lat + ", Longitude: " + report.lng);
+            ::debug("[Main] Location details: ");
+            ::debug("[Main] Fix time " + fix.time);
+            ::debug("[Main] Seconds to first fix: " + fix.secTo1stFix);
+            ::debug("[Main] Seconds to accurate fix: " + fix.secToFix);
+            ::debug("[Main] Fix type: " + getFixDescription(fix.fixType));
+            ::debug("[Main] Fix accuracy: " + fix.accuracy + " meters");
+            ::debug("[Main] Latitude: " + report.lat + ", Longitude: " + report.lng);
         }
         ::debug("--------------------------------------------------------------");
 
-        // Send device data to Salesforce service
-        cloud.send(report);
+        // // Send device data to Salesforce service
+        // cloud.send(report);
 
-        // // Send device data to Losant dashboard
-        lt.sendData(report);
+        // // // Send device data to Losant dashboard
+        // lt.sendData(report);
     }
 
     function getAssist(msg, reply) {
         switch (msg.data) {
             case ASSIST_TYPE.OFFLINE:
-                ::debug("Requesting offline assist messages from u-blox webservice");
+                ::debug("[Main] Requesting offline assist messages from u-blox webservice");
                 loc.getOfflineAssist(function(assistMsgs) {
-                    ::debug("Received online assist messages from u-blox webservice");
+                    ::debug("[Main] Received online assist messages from u-blox webservice");
                     if (assistMsgs != null) {
-                        ::debug("Sending device offline assist messages");
+                        ::debug("[Main] Sending device offline assist messages");
                         reply(assistMsgs);
                     }
                 }.bindenv(this))
                 break;
             case ASSIST_TYPE.ONLINE:
-                ::debug("Requesting online assist messages from u-blox webservice");
+                ::debug("[Main] Requesting online assist messages from u-blox webservice");
                 loc.getOnlineAssist(function(assistMsgs) {
-                    ::debug("Received online assist messages from u-blox webservice");
+                    ::debug("[Main] Received online assist messages from u-blox webservice");
                     if (assistMsgs != null) {
-                        ::debug("Sending device online assist messages");
+                        ::debug("[Main] Sending device online assist messages");
                         reply(assistMsgs);
                     }
                 }.bindenv(this))
                 break;
             default: 
-                ::error("Unknown assist request from device: " + msg.data);
+                ::error("[Main] Unknown assist request from device: " + msg.data);
         }
 
 

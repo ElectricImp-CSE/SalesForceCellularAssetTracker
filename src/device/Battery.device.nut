@@ -71,7 +71,7 @@ class Battery {
         // so call this here so ready flag is always set.
         fg.init(fgSettings, function(err) {
             if (err != null) {
-                ::error("Error initializing fuel gauge: " + err);
+                ::error("[Battery] Error initializing fuel gauge: " + err);
             } else {
                 fgReady = true;
             }

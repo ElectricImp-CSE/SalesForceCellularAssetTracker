@@ -45,8 +45,8 @@ class OAuth2LibDeviceExt extends OAuth2.DeviceFlow.Client {
     //
     function _requestCode(tokenCallback, notifyUserCallback) {
         if (_isBusy()) {
-                _log("Resetting ongoing session with token id: " + _currentTokenId);
-                _reset();
+            ::log("[OAuth2LibDeviceExt] Resetting ongoing session with token id: " + _currentTokenId);
+            _reset();
         }
 
         // incrementing the token # to cancel the previous one
@@ -58,8 +58,7 @@ class OAuth2LibDeviceExt extends OAuth2.DeviceFlow.Client {
             "response_type": _grantType     // ** Change from library, line added 
         };
 
-        _doPostWithHttpCallback(_loginHost, data, _requestCodeCallback,
-                                [tokenCallback, notifyUserCallback]);
+        _doPostWithHttpCallback(_loginHost, data, _requestCodeCallback, [tokenCallback, notifyUserCallback]);
         _changeStatus(Oauth2DeviceFlowState.REQUEST_CODE);
 
         return null;
@@ -84,7 +83,7 @@ class OAuth2LibDeviceExt extends OAuth2.DeviceFlow.Client {
         if (date().time > _expiresAt) {
             _reset();
             local msg = "Token acquiring timeout";
-            _log(msg);
+            ::log("[OAuth2LibDeviceExt] " + msg);
             cb(null, msg);
             return msg;
         }
@@ -118,10 +117,9 @@ class OAuth2LibDeviceExt extends OAuth2.DeviceFlow.Client {
         _userCode        = respData.user_code;
         _deviceCode      = respData.device_code;
 
-        if ("interval"   in respData) _pollTime  = respData.interval;
+        if ("interval" in respData) _pollTime  = respData.interval;
 
-        if("expires_in"  in respData) _expiresAt = respData.expires_in + date().time;
-        else                          _expiresAt = date().time + OAUTH2_DEFAULT_POLL_TIME_SEC;
+        _expiresAt = ("expires_in"  in respData) ? respData.expires_in + date().time : date().time + OAUTH2_DEFAULT_POLL_TIME_SEC;
 
         return null;
     }

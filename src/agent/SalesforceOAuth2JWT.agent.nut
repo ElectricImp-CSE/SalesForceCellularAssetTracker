@@ -53,7 +53,7 @@ class SalesForceOAuth2JWT {
         local token = client.getValidAccessTokenOrNull();
         if (token != null) {
             // We have a valid token already
-            ::debug("Salesforce access token aquired.");
+            ::debug("[SalesForceOAuth2JWT] Salesforce access token aquired.");
             cb(null, token);
         } else {
             // Acquire a new access token

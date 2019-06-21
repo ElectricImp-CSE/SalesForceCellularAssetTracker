@@ -44,14 +44,14 @@ class LosantTracker {
 
         lsntApp = Losant(LOSANT_APPLICATION_ID, LOSANT_API_TOKEN);
         // Check if device with this agent and device id combo exists, create if need
-        ::debug("Check Losant app for devices with matching tags.");
+        ::debug("[Losant] Check Losant app for devices with matching tags.");
         _getLosantDeviceId();
     }
 
     function sendData(data) {
         // Check that we have a Losant device configured
         if (lsntDeviceId == null) {
-            ::debug("Losant device not configured. Not sending data: ");
+            ::debug("[Losant] Losant device not configured. Not sending data: ");
             ::debug(http.jsonencode(data));
             return;
         }
@@ -67,7 +67,7 @@ class LosantTracker {
         if ("lat" in data && "lng" in data) payload.data.location <- format("%s,%s", data.lat, data.lng);
         if ("dist" in data) payload.data.distance <- data.dist; 
 
-        ::debug("Sending device state to Losant:");
+        ::debug("[Losant] Sending device state to Losant:");
         ::debug(http.jsonencode(payload));
         lsntApp.sendDeviceState(lsntDeviceId, payload, _sendDeviceStateHandler.bindenv(this));
     }
@@ -82,13 +82,13 @@ class LosantTracker {
                 "tags"        : newTags,
                 "attributes"  : newAttributes
             }
-            ::debug("Losant: Updating device.");
+            ::debug("[Losant] Losant: Updating device.");
             lsntApp.updateDeviceInfo(lsntDeviceId, deviceInfo, function(res) {
-                ::debug("Losant: Update device status code: " + res.statuscode);
+                ::debug("[Losant] Losant: Update device status code: " + res.statuscode);
                 ::debug(res.body);
             }.bindenv(this))
         } else {
-            ::debug("Losant device id not retrieved yet. Try again.");
+            ::debug("[Losant] Losant device id not retrieved yet. Try again.");
         }
     }
 
@@ -116,7 +116,7 @@ class LosantTracker {
                 "tags"        : _createTags(),
                 "attributes"  : _createAttrs()
             }
-            ::debug("Losant: Creating new device.");
+            ::debug("[Losant] Losant: Creating new device.");
             lsntApp.createDevice(deviceInfo, _createDeviceHandler.bindenv(this))
         }
     }
@@ -133,11 +133,11 @@ class LosantTracker {
         // server.log(res.statuscode);
         // server.log(res.body);
         local body = http.jsondecode(res.body);
-        ::debug("Losant:  Device created.");
+        ::debug("[Losant] Losant:  Device created.");
         if ("deviceId" in body) {
             lsntDeviceId = body.deviceId;
         } else {
-            ::error("Losant device id not found.");
+            ::error("[Losant] Losant device id not found.");
             ::debug(res.body);
         }
     }
@@ -152,31 +152,31 @@ class LosantTracker {
             switch (body.count) {
                 case 0:
                     // No devices found, create device
-                    ::debug("Losant: Device not found.");
+                    ::debug("[Losant] Losant: Device not found.");
                     _createDevice();
                     break;
                 case 1:
                     // We found the device, store the losDevId
-                    ::debug("Losant: Device with matching tags found.");
+                    ::debug("[Losant] Losant: Device with matching tags found.");
                     if ("items" in body && "deviceId" in body.items[0]) {
                         lsntDeviceId = body.items[0].deviceId;
                         // Make sure the attributes and tags in Losant
                         // match the current code.
                         updateDevice(_createAttrs, _createTags);
                     } else {
-                        ::error("Losant device id not in payload.");
+                        ::error("[Losant] Losant device id not in payload.");
                         ::debug(res.body);
                     }
                     break;
                 default:
                     // Log results of filtered query
-                    ::error("Losant: Found " + body.count + "devices matching the device tags.");
+                    ::error("[Losant] Losant: Found " + body.count + "devices matching the device tags.");
 
                     // TODO: Delete duplicate devices - look into how to determine which device
                     // is active, so data isn't lost
             }
         } else {
-            ::error("Losant: List device request failed with status code: " + res.statuscode);
+            ::error("[Losant] Losant: List device request failed with status code: " + res.statuscode);
         }
     }
 

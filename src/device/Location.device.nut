@@ -50,6 +50,7 @@ class Location {
     onAccFix    = null;
 
     bootGPSTime = null;
+    numSats     = null;
 
     constructor() {
         // Allows us to re-initialize GPS after it loses power 
@@ -78,10 +79,10 @@ class Location {
             ubxSettings.defaultOnMsg <- _onMessage.bindenv(this);
         }
 
-        ::debug("Configuring u-blox...");
+        ::debug("[Location] Configuring u-blox...");
         ubx.configure(ubxSettings);
 
-        ::debug("Enable navigation messages...");
+        ::debug("[Location] Enable navigation messages...");
         // Enable Position Velocity Time Solution messages
         ubx.enableUbxMsg(UBX_MSG_PARSER_CLASS_MSG_ID.NAV_PVT, LOCATION_CHECK_SEC, _onNavMsg.bindenv(this));
     }
@@ -113,7 +114,6 @@ class Location {
                 "type"     : 0, 
                 "infoCode" : 6  
             }
-            ::debug(typeof msgs);
             onDone([err]);
         }
     }
@@ -140,11 +140,11 @@ class Location {
         local dist = math.sqrt((new.x - prev.x) * (new.x - prev.x) + (new.y - prev.y) * (new.y - prev.y) + (new.z - prev.z) * (new.z - prev.z));
 
         // Log calculations
-        ::debug("New co-ord");
-        foreach(k, v in new) { ::debug(format("%s: %.7f", k, v)); }
-        ::debug("Old co-ord");
-        foreach(k, v in prev) { ::debug(format("%s: %.7f", k, v)); }
-        ::debug("Device traveled " + dist + " meters");
+        ::debug("[Location] New co-ord");
+        foreach(k, v in new) { ::debug(format("[Location] %s: %.7f", k, v)); }
+        ::debug("[Location] Old co-ord");
+        foreach(k, v in prev) { ::debug(format("[Location] %s: %.7f", k, v)); }
+        ::debug("[Location] Device traveled " + dist + " meters");
         
         return dist;
     }
@@ -168,9 +168,9 @@ class Location {
 
     function _onNavMsg(payload) {
         // This will trigger on every msg, so don't log message unless you need to debug something
-        // ::debug("In NAV_PVT msg handler...");
+        // ::debug("[Location] In NAV_PVT msg handler...");
         // ::debug("-----------------------------------------");
-        // ::debug("Msg len: " + payload.len());
+        // ::debug("[Location] Msg len: " + payload.len());
 
         local parsed = UbxMsgParser[UBX_MSG_PARSER_CLASS_MSG_ID.NAV_PVT](payload);
         if (parsed.error == null) {
@@ -194,45 +194,45 @@ class Location {
     }
 
     function _onUbxMsg(payload, classId) {
-        ::debug("In Location ubx msg handler...");
+        ::debug("[Location] In Location ubx msg handler...");
         ::debug("-----------------------------------------");
 
         // Log message info
-        ::debug(format("Msg Class ID: 0x%04X", classId));
-        ::debug("Msg len: " + payload.len());
+        ::debug(format("[Location] Msg Class ID: 0x%04X", classId));
+        ::debug("[Location] Msg len: " + payload.len());
 
         ::debug("-----------------------------------------");
     }
 
     function _onNmeaMsg(sentence) {
-        ::debug("In Location NMEA msg handler...");
+        ::debug("[Location] In Location NMEA msg handler...");
         // Log NMEA message
         ::debug(sentence);
     }
 
     function _onACK(payload) {
-        ::debug("In Location ACK_ACK msg handler...");
+        ::debug("[Location] In Location ACK_ACK msg handler...");
         ::debug("-----------------------------------------");
 
         local parsed = UbxMsgParser[UBX_MSG_PARSER_CLASS_MSG_ID.ACK_ACK](payload);
         if (parsed.error != null) {
             ::error(parsed.error);
         } else {
-            ::debug(format("ACK-ed msgId: 0x%04X", parsed.ackMsgClassId));
+            ::debug(format("[Location] ACK-ed msgId: 0x%04X", parsed.ackMsgClassId));
         }
 
         ::debug("-----------------------------------------");
     }
 
     function _onNAK(payload) {
-        ::debug("In Location ACK_NAK msg handler...");
+        ::debug("[Location] In Location ACK_NAK msg handler...");
         ::debug("-----------------------------------------");
 
         local parsed = UbxMsgParser[UBX_MSG_PARSER_CLASS_MSG_ID.ACK_NAK](payload);
         if (parsed.error != null) {
             ::error(parsed.error);
         } else {
-            ::error(format("NAK-ed msgId: 0x%04X", parsed.nakMsgClassId));
+            ::error(format("[Location] NAK-ed msgId: 0x%04X", parsed.nakMsgClassId));
         }
 
         ::debug("-----------------------------------------");
@@ -244,6 +244,9 @@ class Location {
         local timeStr = format("%04d-%02d-%02dT%02d:%02d:%02dZ", payload.year, payload.month, payload.day, payload.hour, payload.min, payload.sec);
 
         if (fixType >= FIX_TYPE.FIX_3D) {
+            // Clears numSats var
+            numSats = null;
+
             // Get timestamp for this fix
             local fixTime = (hardware.millis() - bootGPSTime) / 1000.0;
 
@@ -266,9 +269,16 @@ class Location {
 
             // If we have a callback check accuracy
             if (onAccFix != null) _checkAccuracy();
-        } else {
+        } else if ("numSV" in payload) {
+            local nsv = payload.numSV;
             // This will trigger on every message, so don't log message unless you are debugging
-            ::debug(format("no fix %d, satellites %d, date %s", fixType, payload.numSV, timeStr));
+            // ::debug(format("[Location] no fix %d, satellites %d, date %s", fixType, nsv, timeStr));
+            
+            // Limit logs - log when number of satellites in view changes
+            if (numSats != nsv) {
+                numSats = nsv;
+                ::debug(format("[Location] no fix %d, satellites %d, date %s", fixType, numSats, timeStr));
+            }
         }
     }
 

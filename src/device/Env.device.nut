@@ -41,7 +41,7 @@ class Env {
         // Trigger callback only if we get a reading.
         th.read(function(res) {
             if ("error" in res) {
-                ::error("Temperature/Humidity reading error: " + res.error);
+                ::error("[Err] Temperature/Humidity reading error: " + res.error);
                 cb(null);
             } else {
                 cb(res);

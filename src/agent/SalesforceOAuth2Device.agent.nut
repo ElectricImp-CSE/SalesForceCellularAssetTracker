@@ -53,7 +53,7 @@ class SalesForceOAuth2Device {
         local token = client.getValidAccessTokenOrNull();
         if (token != null) {
             // We have a valid token already
-            ::debug("Salesforce access token aquired.");
+            ::debug("[SalesForceOAuth2Device] Salesforce access token aquired.");
             cb(null, token);
         } else {
             // Acquire a new access token
@@ -62,15 +62,15 @@ class SalesForceOAuth2Device {
                     cb(err, resp);
                 }.bindenv(this), 
                 function(url, code) {
-                    ::log("-----------------------------------------------------------------");
-                    ::log("Salesforce: Authorization is pending. Please grant access");
-                    ::log("URL: " + url);
-                    ::log("Code: " + code);
-                    ::log("-----------------------------------------------------------------");
+                    ::log("-------------------------------------------------------------------------------------");
+                    ::log("[SalesForceOAuth2Device] Salesforce: Authorization is pending. Please grant access");
+                    ::log("[SalesForceOAuth2Device] URL: " + url);
+                    ::log("[SalesForceOAuth2Device] Code: " + code);
+                    ::log("-------------------------------------------------------------------------------------");
                 }.bindenv(this)
             );
 
-            if (status != null) ::error("Salesforce: Client is already performing request (" + status + ")");
+            if (status != null) ::error("[SalesForceOAuth2Device] Salesforce: Client is already performing request (" + status + ")");
         }
     }
 
@@ -116,3 +116,37 @@ class SalesForceOAuth2Device {
 //          }
 //      } // end of Client
 // -}
+
+
+// Send device code form data, send login
+// Parsed Form Data:
+// local formData = {
+//     "cancelURL"    : "/home/home.jsp",
+//     "retURL"       : "/home/home.jsp",
+//     "save_new_url" : "/_nc_external/identity/oauth/device/VerifyDevice",
+//     "user_code"    : code,
+//     "save"         : "Connect",
+//     "display"      : "page"                        
+// }
+// local formData = "cancelURL%2Fhome%2Fhome.jsp&retURL=%2Fhome%2Fhome.jsp&save_new_url=%2F_nc_external%2Fidentity%2Foauth%2Fdevice%2FVerifyDevice&user_code=" + code + "&save=Connect&display=page";
+// local req = http.post(url, {"Content-Type" : "application/x-www-form-urlencoded"}, http.urlencode(formData));
+// req.sendasync(function(res) {
+//     local body = res.body;
+//     ::debug("-----------------------------------------------------------------");
+//     ::debug("Response from POST reqest to salesforce device flow url:");
+//     ::debug("Status code: " + res.statuscode);
+//     ::debug("Headers:");
+//     foreach(k, v in res.headers) {
+//         ::debug(k);
+//         ::debug(v);
+//     }
+//     ::debug("Body length: " + body.len());
+//     ::debug("Body type: " + typeof body);
+//     ::debug(body);
+//     ::debug(http.jsondecode(body));
+//     foreach(k, v in body) {
+//         ::debug(k);
+//         ::debug(v);
+//     }
+//     ::debug("-----------------------------------------------------------------");
+// }.bindenv(this))

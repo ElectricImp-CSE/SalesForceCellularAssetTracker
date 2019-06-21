@@ -35,53 +35,58 @@ const SF_EVENT_DEV_ID     = "Device_Id__c";
 const SF_INSTANCE_URL     = "https://eimp-recipe-test.my.salesforce.com";
 const SF_VERSION          = "v46.0";
 
+enum SF_AUTH_TYPE {
+    JWT, 
+    DEVICE
+}
+
+enum SF_ERROR_CODES {
+    MISSING_FIELD = "REQUIRED_FIELD_MISSING",
+    INVALID_SESSION_ID = "INVALID_SESSION_ID"
+}
+
 // Manages Cloud Service Communications  
+// NOTE: Current code only supports sending events to Salesforce
+
 // Dependencies: Salesforce library, OAuth2 library, SalesforceLibExt, 
-// Saleforce OAuth2JWT or Saleforce OAuth2Device
+// Saleforce OAuth2JWT, Saleforce OAuth2Device, Persist
 // Initializes: Salesforce library, OAuth2 library, SalesforceLibExt, 
-// Saleforce OAuth2JWT or Saleforce OAuth2Device
+// Saleforce OAuth2JWT and Saleforce OAuth2Device
 class Cloud {
 
-    _force      = null;
-    _oauth      = null;
+    _force       = null;
+    _oauth       = null;
+    _persist     = null;
 
-    _sendUrl    = null;
-    
+    _sendUrl     = null;
     _impDeviceId = null;
+    _authType    = null;
 
-    constructor() {
-        // NOTE: Current code only supports sending events to Salesforce
+    constructor(persist) {
 
         _impDeviceId = imp.configparams.deviceid;
         _sendUrl = format("sobjects/%s/", SF_EVENT_NAME);
 
-        // // Select Device or JWT Authentication
-        _oauth = SalesForceOAuth2JWT();
-        // _oauth = SalesForceOAuth2Device();
+        // Store reference to persistant storage class instance
+        _persist = persist;
 
         // Initialize Saleforce library 
         _force = SalesforceExt(SF_VERSION);
         // Set base url for sending events
         _force.setInstanceUrl(SF_INSTANCE_URL);
 
-        // Authorize device/get token
-        _oauth.getToken(function(err, token) {
-            if (err) {
-                ::error("Unable to log into salesforce: " + err);
-                return;
-            }
-
-            _force.setToken(token);
-        }.bindenv(this))
+        // Select Device or JWT Authentication
+        _authType = SF_AUTH_TYPE.JWT;
+        _authorize();
     }
 
     function send(data) {
         local body = _formatReport(data);
         if (!_force.isLoggedIn()) {
-            ::error("Not logged into Salesforce. Unable to send data: ");
+            ::error("[Cloud] Not logged into Salesforce. Unable to send data: ");
             ::debug(body);
         } else {
-            ::debug("Sending data to Salesforce:");
+            ::debug("[Cloud] Sending data to Salesforce:");
             ::debug(body);
             _force.request("POST", _sendUrl, body, _onReportSent.bindenv(this)); 
         }        
@@ -89,10 +94,10 @@ class Cloud {
 
     function _onReportSent(err, respData) {
         if (err) {
-            ::debug("Salesforce reporting error occurred: ");
+            ::debug("[Cloud] Salesforce reporting error occurred: ");
             ::error(http.jsonencode(err));
         } else {
-            ::debug("Salesforce readings sent successfully");
+            ::debug("[Cloud] Salesforce readings sent successfully");
         }
     }
 
@@ -140,6 +145,75 @@ class Cloud {
                 }
             }
         */
+    }
+
+    function _authorize() {
+        local token = _persist.getSFToken();
+        if (token != null) {
+            // Set token
+            _force.setToken(token);
+
+            // Ping Saleforce to see if token is valid
+            local pingData = { [SF_EVENT_DEV_ID] = _impDeviceId };
+            _force.request("POST", _sendUrl, http.jsonencode(pingData), _onAuthPing.bindenv(this));
+        } else {
+            _triggerOAuthFlow();
+        }
+    }
+
+    function _onAuthPing(err, resp) {
+        if (err != null) { 
+            local e = err[0];
+            local errCode = ("errorCode" in e) ? e.errorCode : null;
+            ::debug("[Cloud] ping error code: " + errCode);
+
+            switch (errCode) {
+                case SF_ERROR_CODES.MISSING_FIELD:
+                    ::debug("[Cloud] Used stored token to authorize device with Salesforce");
+                    return;
+                case SF_ERROR_CODES.INVALID_SESSION_ID:
+                    ::debug("[Cloud] Stored token expired");
+                    break;
+                default: 
+                    ::debug("[Cloud] Salesforce send ping unexpected error occurred: ");
+                    ::error(http.jsonencode(err));
+            }
+
+            // Our stored token is bad, erase it from storage and SF instance
+            ::debug("[Cloud] Erasing stored token. Starting new authentication with Salesforce.");
+            _persist.setSFToken(null);
+            _force.setToken(null);
+            // Try to re-authorize
+            _triggerOAuthFlow();
+        } else {
+            ::debug("[Cloud] Used stored token to authorize device with Salesforce, statuscode: " + resp.statuscode);
+        }
+    }
+
+    function _triggerOAuthFlow() {
+        switch (_authType) {
+            case SF_AUTH_TYPE.JWT:
+                _oauth = SalesForceOAuth2JWT();
+                break;
+            case SF_AUTH_TYPE.DEVICE:
+                _oauth = SalesForceOAuth2Device();
+                break;
+            default: 
+                ::error("[Cloud] Unexpected authorization type. Not logging into Salesforce");
+        }
+
+        // Authorize device/get token
+        _oauth.getToken(_onGetOAuthToken.bindenv(this))
+    }
+
+    function _onGetOAuthToken(err, token) {
+        if (err) {
+            ::error("[Cloud] Unable to log into Salesforce: " + err);
+            return;
+        }
+
+        _force.setToken(token);
+        _persist.setSFToken(token);
     }
 
 }

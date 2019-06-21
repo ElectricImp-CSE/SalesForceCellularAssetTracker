@@ -22,41 +22,28 @@
 // ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 // OTHER DEALINGS IN THE SOFTWARE.
 
-// Patch for Salesforce Library
+// Persistant Storage File
 
-// Patch for Salesforce Library  
-// Dependencies: Salesforce library 
-class SalesforceExt extends Salesforce {
+// Manages Persistant Storage  
+// Dependencies: Agent storage (ie server.save, server.load)
+class Persist {
 
-    _token = null;
+    _persist = null;
 
-    constructor(sfVersion = null) {
-        if (sfVersion != null) _version = sfVersion;
+    constructor() {
+        _persist = server.load();
     }
 
-    // Function to set credentials (used to be done in constructor), only needed if 
-    // login function is used
-    function configureLoginCredentials(consumerKey, consumerSecret) {
-        _clientId = consumerKey;
-        _clientSecret = consumerSecret;
+    function getSFToken() {
+        return ("sfToken" in _persist) ? _persist.sfToken : null;
     }
 
-    function setUserUrl(url) {
-        _userUrl = url;
-    }
-
-    function getUser(cb = null) {
-        if (!isLoggedIn()) throw "[SalesforceExt] AUTH_ERR: No authentication information."
-        if (_userUrl == null && cb) cb("[SalesforceExt] Salesforce: No user URL set, cannot get user.", null); 
-
-        local headers = {
-            "Authorization": "Bearer " + _token,
-            "content-type": "application/json",
-            "accept": "application/json"
+    function setSFToken(token) {
+        if (token != getSFToken()) {
+            ::debug("[Persist] Updating stored salesforce token.");
+            _persist.sfToken <- token;
+            server.save(_persist);
         }
-
-        local req = http.get(_userUrl, headers);
-        return _processRequest(req, cb);
     }
 
 }

@@ -47,9 +47,9 @@ class Location {
         assist.requestOnline(assistOnlineParams, function(err, resp) {
             local assistData = null;
             if (err != null) {
-                ::error("Online req error: " + err);
+                ::error("[Location] Online req error: " + err);
             } else {
-                ::debug("Received AssistNow Online. Data length: " + resp.body.len());
+                ::debug("[Location] Received AssistNow Online. Data length: " + resp.body.len());
                 assistData = resp.body;
             }
             onResp(assistData);
@@ -67,13 +67,14 @@ class Location {
         assist.requestOffline(assistOfflineParams, function(err, resp) {
             local assistData = null;
             if (err != null) {
-                ::error("Online req error: " + err);
+                ::error("[Location] Offline req error: " + err);
             } else {
-                ::debug("Received AssistNow Online. Data length: " + resp.body.len());
+                ::debug("[Location] Received AssistNow Offline. Raw data length: " + resp.body.len());
+                ::debug("[Location] Parsing AssistNow Offline messages by date.");
                 assistData = assist.getOfflineMsgByDate(resp);
                 // Log Data Lengths
                 foreach(day, data in assistData) {
-                    ::debug(format("offline assist for %s len %d", day, data.len()));
+                    ::debug(format("[Location] Offline assist for %s len %d", day, data.len()));
                 }
             }
             onResp(assistData);

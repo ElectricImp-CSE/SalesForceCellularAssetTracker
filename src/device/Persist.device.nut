@@ -153,7 +153,7 @@ class Persist {
             local file = _sffs.open(PERSIST_FILE_NAMES.WAKE_TIME, "w");
             file.write(_serializeTimestamp(wakeTime));
             file.close();
-            ::debug("Wake time stored: " + wakeTime);
+            ::debug("[Persist] Wake time stored: " + wakeTime);
         }
     }
 
@@ -173,7 +173,7 @@ class Persist {
             local file = _sffs.open(PERSIST_FILE_NAMES.REPORT_TIME, "w");
             file.write(_serializeTimestamp(reportTime));
             file.close();
-            ::debug("Report time stored: " + reportTime);
+            ::debug("[Persist] Report time stored: " + reportTime);
         }
     }
 
@@ -196,7 +196,7 @@ class Persist {
             local file = _sffs.open(PERSIST_FILE_NAMES.LOCATION, "w");
             file.write(_serializeLocation(lat, lng));
             file.close();
-            ::debug("Location stored lat: " + lat + ", lng: " + lng);
+            ::debug("[Persist] Location stored lat: " + lat + ", lng: " + lng);
         }
     }
 
@@ -215,7 +215,7 @@ class Persist {
             local file = _sffs.open(PERSIST_FILE_NAMES.OFFLINE_ASSIST_CHECKED, "w");
             file.write(_serializeTimestamp(offlineAssistChecked));
             file.close();
-            ::debug("Offline assist refesh time stored: " + offlineAssistChecked);
+            ::debug("[Persist] Offline assist refesh time stored: " + offlineAssistChecked);
         }
     }
 
@@ -267,37 +267,48 @@ class Persist {
                     name != PERSIST_FILE_NAMES.LOCATION &&
                     name != PERSIST_FILE_NAMES.OFFLINE_ASSIST_CHECKED &&
                     _isStale(name)) {
-                        ::debug("SFFS file name: " + name);
+                        ::debug("[Persist] Erasing SFFS file name: " + name);
                         // Erase old assist message
                         _sffs.eraseFile(name);
                 } 
             }
         } catch (e) {
-            ::error("Error erasing old assist messages: " + e);
+            ::error("[Persist] Error erasing old assist messages: " + e);
         }
     }
 
     function _isStale(name) {
+        // Unexpected file name erase it
+        if (name.len() != 8) return true; 
+
         local today = date();
         local year  = today.year;   
         local month = today.month + 1;  // date() month returns integer 0-11
         local day   = today.day;  
 
-        // File name/Date string YYYYMMDD
-        local fyear  = name.slice(0, 4).tointeger();
-        local fmonth = name.slice(4, 6).tointeger();
-        local fday   = name.slice(6).tointeger();
+        ::debug("[Persist] Checking if file " + name + " is stale");
 
-        // Check year
-        if (fyear > year) return false;
-        if (fyear < year) return true;
+        try {
+            // File name/Date string YYYYMMDD
+            local fyear  = name.slice(0, 4).tointeger();
+            local fmonth = name.slice(4, 6).tointeger();
+            local fday   = name.slice(6).tointeger();
 
-        // Year is the same, Check month
-        if (fmonth > month) return false;
-        if (fmonth < month) return true;
+            // Check year
+            if (fyear > year) return false;
+            if (fyear < year) return true;
 
-        // Year and month are the same, Check day
-        return (fday < day);
+            // Year is the same, Check month
+            if (fmonth > month) return false;
+            if (fmonth < month) return true;
+
+            // Year and month are the same, Check day
+            return (fday < day);
+        } catch(e) {
+            ::error("[Persist] Error converitng file name to integer: " + name);
+            // Don't erase file
+            return true;
+        }
     }
 
 }

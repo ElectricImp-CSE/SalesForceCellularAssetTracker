@@ -92,7 +92,7 @@ class MainController {
         // TODO: Look into setting connection timeout (currently using default of 60s)
         cm = ConnectionManager({ 
             "blinkupBehavior" : CM_BLINK_ALWAYS, 
-            "retryOnTimeout"  : false
+            // "retryOnTimeout"  : false
         });
         imp.setsendbuffersize(8096);
 
@@ -100,7 +100,7 @@ class MainController {
         Logger.init(LOG_LEVEL.DEBUG, cm);
 
         ::debug("--------------------------------------------------------------------------");
-        ::debug("Device started...");
+        ::debug("[Main] Device started...");
         ::debug(imp.getsoftwareversion());
         ::debug("--------------------------------------------------------------------------");
         PWR_GATE_EN.configure(DIGITAL_OUT, 0);
@@ -123,13 +123,13 @@ class MainController {
 
     // Global MM Timeout handler
     function mmOnTimeout(msg, wait, fail) {
-        ::debug("MM message timed out");
+        ::debug("[Main] MM message timed out");
         fail();
     }
 
     // MM onFail handler for report
     function mmOnReportFail(msg, err, retry) {
-        ::error("Report send failed");
+        ::error("[Main] Report send failed");
         // Don't reset reporting vars or reporting time
         // Try again at next check-in time
         scheduleNextCheckIn();
@@ -137,14 +137,14 @@ class MainController {
 
     // MM onFail handler for assist messages
     function mmOnAssistFail(msg, err, retry) {
-        ::error("Request for assist messages failed, retrying");
+        ::error("[Main] Request for assist messages failed, retrying");
         retry();
     }
 
     // MM onAck handler for report
     function mmOnReportAck(msg) {
         // Report successfully sent
-        ::debug("Report ACK received from agent");
+        ::debug("[Main] Report ACK received from agent");
 
         // Reset report & GPS table
         report = {};
@@ -157,7 +157,7 @@ class MainController {
     // MM onReply handler for assist messages
     function mmOnAssist(msg, response) {
         if (response == null) {
-            ::debug("Didn't receive any Assist messages from agent.");
+            ::debug("[Main] Didn't receive any Assist messages from agent.");
             return;
         }
 
@@ -167,7 +167,7 @@ class MainController {
         local assistMsgs = response;
 
         if (msg.payload.data == ASSIST_TYPE.OFFLINE) {
-            ::debug("Offline assist messages received from agent");
+            ::debug("[Main] Offline assist messages received from agent");
             // Get today's date string/file name
             local todayFileName = loc.getAssistDateFileName();
 
@@ -179,13 +179,13 @@ class MainController {
             // Select today's offline assist messages only
             if (todayFileName in response) {
                 assistMsgs = response.todayFileName;
-                ::debug("Writing offline assist messages to u-blox");
+                ::debug("[Main] Writing offline assist messages to u-blox");
             } else {
-                ::debug("No offline assist messges for today. No messages written to UBLOX.");
+                ::debug("[Main] No offline assist messges for today. No messages written to UBLOX.");
                 return;
             }
         } else {
-            ::debug("Online assist messages received from agent. Writing to u-blox");
+            ::debug("[Main] Online assist messages received from agent. Writing to u-blox");
         }
 
         // Write assist messages to UBLOX module
@@ -223,7 +223,7 @@ class MainController {
     }
 
     function onCheckIn() {
-        ::debug("Starting check-in flow...");
+        ::debug("[Main] Starting check-in flow...");
 
         // Trigger async tasks
         // NOTE: getLocation() will initialize/re-initialize location class
@@ -245,7 +245,7 @@ class MainController {
     }
 
     function scheduleNextCheckIn() {
-        ::debug("Scheduling next check-in: " + (time() + CHECK_IN_TIME_SEC));
+        ::debug("[Main] Scheduling next check-in: " + (time() + CHECK_IN_TIME_SEC));
         // TODO: update with power down/sleep logic to conserve battery
         imp.wakeup(CHECK_IN_TIME_SEC, onCheckIn.bindenv(this));
     }
@@ -258,7 +258,7 @@ class MainController {
         // Limit requests (Offline Assist data refreshes 1X-2X a day)
         if (shouldGetOfflineAssist() && cm.isConnected()) {
             // We don't have a fix, request assist online data
-            ::debug("Requesting offline assist messages from agent/Assist Now.");
+            ::debug("[Main] Requesting offline assist messages from agent/Assist Now.");
             local mmHandlers = {
                 "onReply" : mmOnAssist.bindenv(this),
                 "onFail"  : mmOnAssistFail.bindenv(this)
@@ -272,7 +272,7 @@ class MainController {
     function reqOnlineAssist() {
         if (cm.isConnected()) {
             // We don't have a fix, request assist online data
-            ::debug("Requesting online assist messages from agent/Assist Now.");
+            ::debug("[Main] Requesting online assist messages from agent/Assist Now.");
             local mmHandlers = {
                 "onReply" : mmOnAssist.bindenv(this),
                 "onFail"  : mmOnAssistFail.bindenv(this)
@@ -287,7 +287,7 @@ class MainController {
         report.ts <- time();
 
         // Send to agent
-        ::debug("Sending device status report to agent");
+        ::debug("[Main] Sending device status report to agent");
         local mmHandlers = {
             "onAck"  : mmOnReportAck.bindenv(this), 
             "onFail" : mmOnReportFail.bindenv(this)
@@ -312,7 +312,7 @@ class MainController {
             local locationTimer = null;
 
             loc.getLocation(LOCATION_ACCURACY, function(gpxFix) {
-                ::debug("Got fix. Disabling GPS power");
+                ::debug("[Main] Got fix. Disabling GPS power");
                 PWR_GATE_EN.write(0);
 
                 // Cancel timeout timer
@@ -326,7 +326,7 @@ class MainController {
                 report.fix <- gpxFix;
 
                 if ("lat" in report && "lng" in report) {
-                    ::debug(format("GPS reading: Latitude %s, Longitude %s", report.lat, report.lng));
+                    ::debug(format("[Main] GPS reading: Latitude %s, Longitude %s", report.lat, report.lng));
                 }
 
                 return resolve("GPS location done");
@@ -334,11 +334,11 @@ class MainController {
 
             // Configure Location Timeout
             locationTimer = imp.wakeup(LOCATION_TIMEOUT_SEC, function() {
-                ::debug("Location request timed out. Disabling GPS power");
+                ::debug("[Main] Location request timed out. Disabling GPS power");
                 PWR_GATE_EN.write(0);
 
                 // NOTE: Report will not include GPS location
-                return resolve("GPS location request timed out");
+                return resolve("[Main] GPS location request timed out");
             }.bindenv(this));
         }.bindenv(this))
     }
@@ -350,9 +350,9 @@ class MainController {
             // Initialize Battery Monitor, don't configure i2c
             local battery = Battery(false);
             battery.getStatus(function(status) {
-                ::debug("Get battery status complete:")
-                ::debug("Remaining cell capacity: " + status.capacity + "mAh");
-                ::debug("Percent of battery remaining: " + status.percent + "%");
+                ::debug("[Main] Get battery status complete:")
+                ::debug("[Main] Remaining cell capacity: " + status.capacity + "mAh");
+                ::debug("[Main] Percent of battery remaining: " + status.percent + "%");
                 // Stores battery status for use in report
                 report.battStatus <- status;
                 return resolve("Battery status complete");
@@ -371,7 +371,7 @@ class MainController {
                 // Stores temp and humid readings for use in report
                 if ("temperature" in reading) report.temp <- reading.temperature;
                 if ("humidity" in reading) report.humid <- reading.humidity;
-                ::debug(format("Temperature/Humidity reading complete, temp: %f, humidity: %f", reading.temperature, reading.humidity));
+                ::debug(format("[Main] Temperature/Humidity reading complete, temp: %f, humidity: %f", reading.temperature, reading.humidity));
                 return resolve("Temperature/Humidity reading complete");
             }.bindenv(this))
         }.bindenv(this))
@@ -387,7 +387,7 @@ class MainController {
         // Update report time if it has changed
         persist.setReportTime(reportTime, false);
 
-        ::debug("Next report time " + reportTime + ", in " + (reportTime - now) + "s");
+        ::debug("[Main] Next report time " + reportTime + ", in " + (reportTime - now) + "s");
     }
 
     // Async Action Handlers
@@ -396,7 +396,7 @@ class MainController {
     // Assist messages written to u-blox completed
     // Logs write errors if any
     function onAssistMsgDone(errs) {
-        ::debug("Assist messages written to u-blox");
+        ::debug("[Main] Assist messages written to u-blox");
         if (errs != null) {
             foreach(err in errs) {
                 // Log errors encountered
@@ -429,13 +429,13 @@ class MainController {
                 persist.setLocation(lat, lng, storeToSpi);
                 return true;
             } else {
-                ::debug("Got location in report. Calculating distance.");
-                ::debug("Last location: lat " + lastLoc.lat + ", lng " + lastLoc.lng);
+                ::debug("[Main] Got location in report. Calculating distance.");
+                ::debug("[Main] Last location: lat " + lastLoc.lat + ", lng " + lastLoc.lng);
 
                 local lat = report.fix.lat;
                 local lng = report.fix.lng;
 
-                ::debug("New location: lat " + lat + ", lng " + lng);
+                ::debug("[Main] New location: lat " + lat + ", lng " + lng);
 
                 // Param order: new lat, new lng, old lat old lng
                 local dist = loc.calculateDistance(lat, lng, lastLoc.lat, lastLoc.lng);
@@ -456,7 +456,7 @@ class MainController {
         // If the imp looses all power, a connection to the server is
         // needed to get a valid timestamp.
         local validTS = validTimestamp();
-        ::debug("Valid timestamp: " + validTS);
+        ::debug("[Main] Valid timestamp: " + validTS);
         if (!validTS) return true;
 
         // Check if battery is low
@@ -469,7 +469,7 @@ class MainController {
         // Check if report time has passed
         local now = time();
         local shouldReport = (now >= persist.getReportTime());
-        ::debug("Time to send report: " + shouldReport);
+        ::debug("[Main] Time to send report: " + shouldReport);
         return shouldReport;
     }
 

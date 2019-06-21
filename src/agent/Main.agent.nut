@@ -108,8 +108,8 @@ class MainController {
         }
         ::debug("--------------------------------------------------------------");
 
-        // // Send device data to Salesforce service
-        // cloud.send(report);
+        // Send device data to Salesforce service
+        cloud.send(report);
 
         // // // Send device data to Losant dashboard
         // lt.sendData(report);

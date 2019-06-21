@@ -31,13 +31,61 @@ This project uses u-blox AssistNow services, and requires and account and author
 
 ### Salesforce Configuration ### 
 
-TODO: add instructions re: setting up Salesforce account, creating events etc.
+TODO: Add instructions re: setting up Salesforce account, creating events etc.
+
+To authenticate your device with Salesforce you will need to create a *Salesforce Connected Application*. The settings are slightly different based on you you choose to authenticate with Salesforce. Select either the [Device OAuth Flow](#device-oauth-flow) or [JWT OAuth Flow](#jwt-oauth-flow) and follow the setup instructions in that section. Then, when finished with the steps in the authentication section, skip ahead to the [Electric Imp Configuration](#electric-imp-configuration) section to continue setting up your project.
 
 ### Device OAuth Flow ### 
 
-The OAuth2.0 Device flow may be easier when getting started but is not recommended for production. 
+The OAuth2.0 Device flow may be easier when getting started but is not recommended for production, since each device will require a physical log-in from a browser. In this flow the imp will log a url and a code that will used to load a Salesforce log-in page. That log-in will then authorize the device to send data to Salesforce. 
 
-NOTE: This flow is not supported by the current code base yet. Please use JWT OAuth Flow. 
+#### Create A Salesforce Connected Application ####
+
+- Log into Salesforce
+- Select *Setup* then in the sidebar under *Platform Tools* -> *Apps* select *App Manager*
+- Click *New Connected App* and fill out the following:
+    - Under *Basic Information*
+        - Enter a name for your app
+        - Enter your email
+    - Under *API (Enable OAuth Settings)*
+        - 
+        - Check Enable OAuth Settings
+        - Enter a callback URL, ie `http://localhost:1717/OauthRedirect` 
+        - Check *Enable for Device Flow*
+        - Add the following OAuth Scopes 
+            - Access and manage your data (api)
+            - Perform requests on your behalf at any time (refresh_token, offline_access)
+            - Provide access to your data via the Web (web)
+    - Click *Save*
+- Copy down your **Consumer Key** and **Consumer Secret**. These will need to be added to your Squirrel code.
+
+#### Authorizing Your Device ####
+
+These steps will need to be followed once your device starts to run the Squirrel application code. Please skim through them so you are familiar with what you need to look out for. 
+
+Once your device is running, you will see logs similar to the following:  
+
+```
+2019-06-21 14:23:14-0700 [Agent]  [INFO]: -----------------------------------------------------------------
+2019-06-21 14:23:14-0700 [Agent]  [INFO]: [SalesForceOAuth2Device] Salesforce: Authorization is pending. Please grant access
+2019-06-21 14:23:14-0700 [Agent]  [INFO]: [SalesForceOAuth2Device] URL: https://login.salesforce.com/setup/connect
+2019-06-21 14:23:14-0700 [Agent]  [INFO]: [SalesForceOAuth2Device] Code: 6VL44ZGC
+2019-06-21 14:23:14-0700 [Agent]  [INFO]: -----------------------------------------------------------------
+2019-06-21 14:23:20-0700 [Agent]  [OAuth2DeviceFlow] Polling error:authorization_pending
+```
+
+Copy and paste the URL in a web browser, then copy and paste the alpha numeric code (ie 6VL44ZGC) into the form on that webpage. You will be re-directed to a salesforce log-in page (if you are not currently logged into Salesforce). Once you log in you will see the following logs from your imp device:
+
+```
+2019-06-21 14:23:24-0700 [Agent]  [OAuth2DeviceFlow] Polling error:authorization_pending
+2019-06-21 14:23:30-0700 [Agent]  [OAuth2DeviceFlow] Polling error:authorization_pending
+2019-06-21 14:23:35-0700 [Agent]  [OAuth2DeviceFlow] Polling success
+2019-06-21 14:23:35-0700 [Agent]  [OAuth2DeviceFlow] Change status of session1 from 2 to 0
+```
+
+Your device is now authorized and will begin sending data to Salesforce.
+
+Please skip ahead to [Electric Imp Configuration](#electric-imp-configuration) section to continue setting up your project.
 
 ### JWT OAuth Flow ###
 
@@ -137,11 +185,15 @@ Create a permission set and assign pre-authorized users for this connected app.
 
 ### Electric Imp Configuration ### 
 
+#### Connecting Your Device ####
+
 Sign up for an Electric Imp account [here](https://impcentral.electricimp.com), then follow the instructions in this [getting started guide](https://developer.electricimp.com/gettingstarted/impc001breakoutboard) to connect your impC001 using blinkUp. Make a note of your Device Id. You will want to add this device to your project/device group.
+
+#### Configuring a VS Code Project ####
 
 This project has been written using [VS code plug-in](https://github.com/electricimp/vscode). All configuration settings and pre-processed files have been excluded, so sensitive keys are not exposed. Follow the instructions [here](https://github.com/electricimp/vscode#installation) to install the plug-in and create a project. 
 
-Replace the **src** folder in your newly created project with the **src** folder found in this repository
+#### Updating Project Configuration Settings ####
 
 Update settings/imp.config file. This file will store your application's sensitive keys and should never be committed to Github.
 
@@ -151,6 +203,7 @@ Update settings/imp.config file. This file will store your application's sensiti
     - *UBLOX_ASSISTNOW_TOKEN* value should be updated with your u-blox Assist Now authorization token
     - *SF_CONSUMER_KEY* value should be updated with your Salesforce connected app's consumer key
     - *SF_CONSUMER_SECRET* value should be updated with your Salesforce connected app's consumer secret
+- If using the JWT Authentication flow you will need to update these *builderSettings* as well:
     - *SF_JWT_PVT_KEY* value should be updated with the contents of the private key file generated with openssl in the [JWT Auth Flow Generate Certificate](#generate-certificate). NOTE: This file may need to be altered slightly so the contents become a single line separated with the new line char `\n` instead of a multi-line string
     - *SF_USERNAME* value should be updated with the account username that matches your connected app's account permissions
 
@@ -174,6 +227,40 @@ Example imp.config file:
 }
 ```
 
+#### Updating Project Code ####
+
+Replace the **src** folder in your newly created project with the **src** folder found in this repository. 
+
+Next we need to make sure the code is configured to authenticate the same way you have configured in your Salesforce connected app. Navigate to the *src/agent/Cloud.agent.nut file*. In the constructor look for the line that sets the `_authType` variable, and set it up to match your auth flow configuration. 
+
+For *JWT OAuth Flow* set it to the following: 
+
+```
+// Select Device or JWT Authentication
+_authType = SF_AUTH_TYPE.JWT;
+```
+
+For *Device OAuth Flow* set it to the following: 
+```
+// Select Device or JWT Authentication
+_authType = SF_AUTH_TYPE.DEVICE;
+```
+
+#### Deploying Your Application Code ####
+
+You are now ready to upload and deploy your application code. To update code:
+
+- Open the Command Palette by selecting *Command Palette...* in the *View* menu dropdown
+- In the pop-up select *imp: Deploy Project*
+
+or 
+
+- Use the keyboard shortcut `CTRL+SHIFT+X`
+
+You should now see device logs in the *OUTPUT* tab. 
+
+If you used the [Device OAuth Flow](#device-oauth-flow) look for in the logs to find the URL and Code to authorize your device. See detailed instructions on how to use them [here](#authorizing-your-device).
+
 ### Offline logging ###
 
 For development purposes uart logging is recommended to see offline device logs. Current code uses hardware.uartDCAB (A: RTS, B: CTS, C: RX, D: TX) for uart logging. 
@@ -182,7 +269,12 @@ For development purposes uart logging is recommended to see offline device logs.
 
 Settings are all stored as constants. Modify to customize the application. To save power put the device to sleep between reporting intervals (Note: The impC001 takes ~40s to connect.)
 
-TODO: add listeners from salesforce (bayeux client) for updating settings (ie temp thresholds, reporting intervals etc)
+Possible optimizations: 
+
+- Update code to support BLE temperature sensor
+- Add temperature and humidity thresholds that send alerts when crossed
+- Add listeners from Salesforce (Bayeux client) for updating settings (ie temp thresholds, reporting intervals etc)
+- Update code to let device disconnect and sleep to conserve power
 
 # License
 

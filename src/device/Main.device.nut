@@ -161,21 +161,19 @@ class MainController {
             return;
         }
 
-        // Make sure location class is initialized
-        if (loc == null) loc = Location(); 
         // Response contains assist messages from cloud
         local assistMsgs = response;
 
         if (msg.payload.data == ASSIST_TYPE.OFFLINE) {
             ::debug("[Main] Offline assist messages received from agent");
-            // Get today's date string/file name
-            local todayFileName = loc.getAssistDateFileName();
 
             // Store all offline assist messages by date
             persist.storeAssist(response);
             // Update time we last checked
             persist.setOfflineAssistChecked(time());
 
+            // Get today's date string/file name
+            local todayFileName = Location.getAssistDateFileName();
             // Select today's offline assist messages only
             if (todayFileName in response) {
                 assistMsgs = response.todayFileName;
@@ -188,8 +186,8 @@ class MainController {
             ::debug("[Main] Online assist messages received from agent. Writing to u-blox");
         }
 
-        // Write assist messages to UBLOX module
-        loc.writeAssistMsgs(assistMsgs, onAssistMsgDone.bindenv(this));
+        // If GPS is still powered, write assist messages to UBLOX module to help get accurate fix more quickly
+        if (PWR_GATE_EN.read() && loc) loc.writeAssistMsgs(assistMsgs, onAssistMsgDone.bindenv(this));
     }
 
     // Connection & Connection Flow Handlers
@@ -217,7 +215,8 @@ class MainController {
             }.bindenv(this));
 
         // Get assist messages
-        // NOTE: Order matters, best to let getLocation() initialize location class first 
+        // NOTE: Order matters, getLocation() initialize location class, so should be called 
+        // before we request assist messages 
         reqOfflineAssist();
         reqOnlineAssist();
     }
@@ -238,8 +237,10 @@ class MainController {
                 }
             }.bindenv(this));
 
-        // Get offline assist messages if needed
-        // TODO: Move to connection flow if sleep/wake flow implemented.
+        // TODO: Move these to on connect when sleep/wake flow implemented.
+        // Refresh offline assist messages if needed
+        // NOTE: Order matters, getLocation() initialize location class, so should be called 
+        // before we request assist messages 
         reqOfflineAssist();
         reqOnlineAssist();
     }
@@ -301,19 +302,16 @@ class MainController {
         return Promise(function(resolve, reject) {
             // Power up GPS
             PWR_GATE_EN.write(1);
-            // Enable UBlox 
-            // Note: If device wakes from sleep just initialize 
-            // Location class, however if device continues to run
-            // after PWR_GATE_EN disables GPS UBX uart needs to be 
-            // reconfigured, so call init method to re-initialize UBLOX 
-            // libs. 
+
+            // Enable/configure UBlox  
             (loc == null) ? loc = Location() : loc.init();
+            // Write offline assist messages or time assist message, if we can
+            writeStoredOfflineAssistToUbx();
 
             local locationTimer = null;
-
             loc.getLocation(LOCATION_ACCURACY, function(gpxFix) {
                 ::debug("[Main] Got fix. Disabling GPS power");
-                PWR_GATE_EN.write(0);
+                disableGPS();
 
                 // Cancel timeout timer
                 if (locationTimer != null) imp.cancelwakeup(locationTimer);
@@ -335,7 +333,7 @@ class MainController {
             // Configure Location Timeout
             locationTimer = imp.wakeup(LOCATION_TIMEOUT_SEC, function() {
                 ::debug("[Main] Location request timed out. Disabling GPS power");
-                PWR_GATE_EN.write(0);
+                disableGPS();
 
                 // NOTE: Report will not include GPS location
                 return resolve("[Main] GPS location request timed out");
@@ -388,6 +386,25 @@ class MainController {
         persist.setReportTime(reportTime, false);
 
         ::debug("[Main] Next report time " + reportTime + ", in " + (reportTime - now) + "s");
+    }
+
+    function writeStoredOfflineAssistToUbx() {
+        // Get today's date string/file name
+        local todayFileName = loc.getAssistDateFileName();
+        
+        // Get offline assist with this file name
+        local msgs = persist.getAssistByDate(todayFileName);
+        if (msgs != null) {
+            loc.writeAssistMsgs(msgs, onAssistMsgDone.bindenv(this));
+        } else {
+            loc.writeUtcTimeAssist();
+        }
+    }
+
+    function disableGPS() {
+        // NOTE: Killing power to GPS requires a re-configuration of the GPS UART, so Location
+        // class init method will need to be called to use any UBlox location functions.
+        PWR_GATE_EN.write(0);
     }
 
     // Async Action Handlers

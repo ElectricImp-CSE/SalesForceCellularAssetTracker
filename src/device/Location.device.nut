@@ -45,18 +45,27 @@ class Location {
     ubx         = null;
     assist      = null;
 
-    gpsFix      = null;
     accTarget   = null;
     onAccFix    = null;
 
+    gpsFix      = null;
     bootGPSTime = null;
     numSats     = null;
 
+    // Parameter is the table returned by date
+    // NOTE: this function doesn't need assist or location class to be initialized to use, 
+    // So create as a static function.
+    static function getAssistDateFileName(d = null) {
+        // If date is null getDateString will call imp API date()
+        // and use that to create a date string for today
+        return UBloxAssistNow.getDateString(d);
+    }
+
     constructor() {
-        // Allows us to re-initialize GPS after it loses power 
         init();
     }
 
+    // Allow us to re-initialize ubx uart
     function init() {
         bootGPSTime = hardware.millis();
         gpsFix      = null;
@@ -116,13 +125,6 @@ class Location {
             }
             onDone([err]);
         }
-    }
-
-    // Parameter is the table returned by date
-    function getAssistDateFileName(d = null) {
-        // If date is null getDateString will call imp API date()
-        // and use that to create a date string for today
-        return assist.getDateString(d);
     }
 
     function calculateDistance(newLat, newLng, oldLat, oldLng) {

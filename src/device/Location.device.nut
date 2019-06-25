@@ -128,6 +128,17 @@ class Location {
         }
     }
 
+    // Returns boolean if differences in GPS data have exeeded the threshold
+    function filterGPS(newLat, newLng, prevLat, prevLng, threshold) {
+        local nLat = _convertToDecDegFloat(newLat);
+        local nLng = _convertToDecDegFloat(newLng);
+
+        local pLat = _convertToDecDegFloat(prevLat);
+        local pLng = _convertToDecDegFloat(prevLng);
+
+        return (math.fabs(nLat - pLat) > threshold || math.fabs(nLng - pLng) > threshold);
+    }
+
     function calculateDistance(newLat, newLng, prevLat, prevLng) {
         // NOTE: This calculation is an approximation for distance - it doesn't take into 
         // account altitude or the exact curvature of the earth. Based on Haversine formula

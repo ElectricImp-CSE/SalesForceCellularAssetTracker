@@ -69,8 +69,12 @@ const OFFLINE_ASSIST_REQ_MAX = 43200; // Limit requests to every 12h (12 * 60 * 
 const VALID_TS_YEAR          = 2019;
 // Low battery alert threshold in percentage
 const BATTERY_LOW_THRESH     = 10;
-// Distance threshold in meters (~100ft)
-const DISTANCE_THRESHOLD_M   = 30;
+// Distance threshold in meters (~200ft)
+const DISTANCE_THRESHOLD_M   = 60;
+// GPS can sometimes jump around when sitting still, use this filter to eliminate 
+// small jumps while not moving. This will also limit the number of times we calculate
+// distance.
+const GPS_FILTER             = 0.00030;
 
 class MainController {
 
@@ -85,14 +89,17 @@ class MainController {
     storeToSpi = null; 
 
     constructor() {
-        // Initialize ConnectionManager Library - this sets the connection policy, so divice can
-        // run offline code. The connection policy should be one of the first things set when the
-        // code starts running.
-        // TODO: In production update CM_BLINK to NEVER to conserve battery power
-        // TODO: Look into setting connection timeout (currently using default of 60s)
+        // Initialize ConnectionManager Library - this sets the connection policy to RETURN_ON_ERROR. 
+        // The connection policy should be one of the first things set when the code starts running.
+        // TODO: 
+            // Change settings to run offline and conserve battry 
+                // "stayConnected" and "retryOnTImeout" to false
+                // "blinkupBehavior" to CM_BLINK_NEVER
+            // Look into setting connection timeout (currently using default of 60s)
         cm = ConnectionManager({ 
             "blinkupBehavior" : CM_BLINK_ALWAYS, 
-            // "retryOnTimeout"  : false
+            "stayConnected"   : true, 
+            "retryOnTImeout"  : true
         });
         imp.setsendbuffersize(8096);
 
@@ -438,32 +445,33 @@ class MainController {
     // Returns boolean, checks for event(s) or if report time has passed
     function shouldReport() {
         // Check if we have moved using current and previous location
-        // NOTE: This updates stored location, so needs to be the first thing checked
         if ("fix" in report) {
-            // We have a new location, check distance
-
-            // Get stored location
+            // We have a new location, get stored location
             local lastReportedLoc = persist.getLocation();
             local lat = report.fix.lat;
             local lng = report.fix.lng;
 
             if (lastReportedLoc == null) {
-                // We have not reported a location yet
-                // Send a report
+                // We have not reported a location yet, send a report
                 return true;
             } else {
-                ::debug("[Main] Got location in report. Calculating distance...");
-                ::debug("[Main] Current location: lat " + lat + ", lng " + lng);
-                ::debug("[Main] Last reported location: lat " + lastReportedLoc.lat + ", lng " + lastReportedLoc.lng);
+                // Check if location has changed a meaningful ammount before calculating distance
+                // Param order: new lat, new lng, old lat, old lng, filter threshold
+                local locHasChanged = loc.filterGPS(lat, lng, lastReportedLoc.lat, lastReportedLoc.lng, GPS_FILTER);
+                if (locHasChanged) {
+                    ::debug("[Main] Got location in report. Calculating distance...");
+                    ::debug("[Main] Current location: lat " + lat + ", lng " + lng);
+                    ::debug("[Main] Last reported location: lat " + lastReportedLoc.lat + ", lng " + lastReportedLoc.lng);
 
-                // Param order: new lat, new lng, old lat old lng
-                local dist = loc.calculateDistance(lat, lng, lastReportedLoc.lat, lastReportedLoc.lng);
-                report.dist <- dist;
+                    // Param order: new lat, new lng, old lat old lng
+                    local dist = loc.calculateDistance(lat, lng, lastReportedLoc.lat, lastReportedLoc.lng);
+                    report.dist <- dist;
 
-                // Report if we have moved more than the minimum distance since our last report
-                if (dist >= DISTANCE_THRESHOLD_M) {
-                    report.locationChanged <- true;
-                    return true;
+                    // Report if we have moved more than the minimum distance since our last report
+                    if (dist >= DISTANCE_THRESHOLD_M) {
+                        report.locationChanged <- true;
+                        return true;
+                    }
                 }
             }
         }

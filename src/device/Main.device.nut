@@ -146,6 +146,16 @@ class MainController {
         // Report successfully sent
         ::debug("[Main] Report ACK received from agent");
 
+        // Persist last reported raw location data so we can determine location changes on next check-in
+        local ackedReport  = msg.payload.data;
+        if ("fix" in ackedReport && "lat" in ackedReport.fix && "lng" in ackedReport.fix) {
+            local lat = ackedReport.fix.lat;
+            local lng = ackedReport.fix.lng;
+
+            ::debug("[Main] Updating stored location to: Latitude: " + lat + ", Longitude: " + lng);
+            persist.setLocation(lat, lng, storeToSpi);
+        }
+
         // Reset report & GPS table
         report = {};
         loc.clearGPSFix();
@@ -205,11 +215,6 @@ class MainController {
         local tasks = [getLocation(), getBattStatus(), getTempHumid()];
         Promise.serial(tasks)
             .then(function(msg) {
-                // Persist raw location data so we can determine location changes on next check-in
-                if ("fix" in report && "lat" in report.fix && "lng" in report.fix) {
-                    persist.setLocation(report.fix.lat, report.fix.lng, storeToSpi);
-                }
-
                 // NOTE: Report ack/timeout/fail handler(s) will schedule next check-in
                 sendReport();
             }.bindenv(this));
@@ -438,30 +443,24 @@ class MainController {
             // We have a new location, check distance
 
             // Get stored location
-            local lastLoc = persist.getLocation();
+            local lastReportedLoc = persist.getLocation();
+            local lat = report.fix.lat;
+            local lng = report.fix.lng;
 
-            if (lastLoc == null) {
-                // We have not reported a location yet, so send a report
-                // Update stored lat and lng
-                persist.setLocation(lat, lng, storeToSpi);
+            if (lastReportedLoc == null) {
+                // We have not reported a location yet
+                // Send a report
                 return true;
             } else {
-                ::debug("[Main] Got location in report. Calculating distance.");
-                ::debug("[Main] Last location: lat " + lastLoc.lat + ", lng " + lastLoc.lng);
-
-                local lat = report.fix.lat;
-                local lng = report.fix.lng;
-
-                ::debug("[Main] New location: lat " + lat + ", lng " + lng);
+                ::debug("[Main] Got location in report. Calculating distance...");
+                ::debug("[Main] Current location: lat " + lat + ", lng " + lng);
+                ::debug("[Main] Last reported location: lat " + lastReportedLoc.lat + ", lng " + lastReportedLoc.lng);
 
                 // Param order: new lat, new lng, old lat old lng
-                local dist = loc.calculateDistance(lat, lng, lastLoc.lat, lastLoc.lng);
+                local dist = loc.calculateDistance(lat, lng, lastReportedLoc.lat, lastReportedLoc.lng);
                 report.dist <- dist;
 
-                // Update stored lat and lng
-                persist.setLocation(lat, lng, storeToSpi);
-
-                // Report if we have moved more than the minimum distance
+                // Report if we have moved more than the minimum distance since our last report
                 if (dist >= DISTANCE_THRESHOLD_M) {
                     report.locationChanged <- true;
                     return true;
@@ -478,6 +477,7 @@ class MainController {
 
         // Check if battery is low
         if ("battStatus" in report && report.battStatus.percent <= BATTERY_LOW_THRESH) {
+            ::debug("[Main] Low battery warning " + report.battStatus.percent + "% battery remaining");
             return true;
         } 
 

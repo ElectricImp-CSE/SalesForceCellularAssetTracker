@@ -27,6 +27,7 @@
 const DEFAULT_GPS_ACCURACY = 9999;
 const GPS_UART_BAUDRATE    = 115200;
 const LOCATION_CHECK_SEC   = 1;
+const EARTH_RADIUS_KM      = 6373;
 
 enum FIX_TYPE {
     NO_FIX,
@@ -127,26 +128,31 @@ class Location {
         }
     }
 
-    function calculateDistance(newLat, newLng, oldLat, oldLng) {
+    function calculateDistance(newLat, newLng, prevLat, prevLng) {
         // NOTE: This calculation is an approximation for distance - it doesn't take into 
-        // account altitude or the exact curvature of the earth
+        // account altitude or the exact curvature of the earth. Based on Haversine formula
+        // http://en.wikipedia.org/wiki/Haversine_formula
         local nLat = _convertToDecDegFloat(newLat);
         local nLng = _convertToDecDegFloat(newLng);
 
-        local oLat = _convertToDecDegFloat(oldLat);
-        local oLng = _convertToDecDegFloat(oldLng);
+        local pLat = _convertToDecDegFloat(prevLat);
+        local pLng = _convertToDecDegFloat(prevLng);
 
-        local new  = _getCartesianCoods(nLat, nLng);
-        local prev = _getCartesianCoods(oLat, oLng);
+        ::debug("[Location] new lat: " + nLat + " new lng: " + nLng);
+        ::debug("[Location] old lat: " + pLat + " old lng: " + pLng);
+
+        local dlat = _deg2rad(nLat - pLat);
+        local dlng = _deg2rad(nLng - pLng);
+        local rplat = _deg2rad(pLat);
+        local rlat = _deg2rad(nLat);
         
-        local dist = math.sqrt((new.x - prev.x) * (new.x - prev.x) + (new.y - prev.y) * (new.y - prev.y) + (new.z - prev.z) * (new.z - prev.z));
-
-        // Log calculations
-        ::debug("[Location] New co-ord");
-        foreach(k, v in new) { ::debug(format("[Location] %s: %.7f", k, v)); }
-        ::debug("[Location] Old co-ord");
-        foreach(k, v in prev) { ::debug(format("[Location] %s: %.7f", k, v)); }
-        ::debug("[Location] Device traveled " + dist + " meters");
+        local s1 = math.sin(dlat / 2);
+        local s2 = math.sin(dlng / 2);
+        
+        local a = (s1 * s1) + math.cos(rplat) * math.cos(rlat) * (s2 * s2);
+        local c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+        local dist = EARTH_RADIUS_KM * c * 1000; // Convert km to meters
+        ::debug(format("[Location] Device traveled %.10f meters",  dist));
         
         return dist;
     }
@@ -155,17 +161,8 @@ class Location {
         return raw / 10000000.0;
     }
 
-    function _getCartesianCoods(lat, lng) {
-        local latRad = lat * PI / 180;
-        local lngRad = lng * PI / 180;
-        local cosLat = math.cos(latRad);
-        local result = {};
-        
-        result.x <- cosLat * math.sin(lngRad);
-        result.y <- math.sin(latRad);
-        result.z <- cosLat * math.cos(lngRad);
-        
-        return result;
+    function _deg2rad(deg) {
+        return deg * PI / 180;
     }
 
     function _onNavMsg(payload) {

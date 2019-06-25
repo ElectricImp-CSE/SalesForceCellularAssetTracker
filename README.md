@@ -1,15 +1,14 @@
 # Salesforce Cellular Asset Tracker #
 
-## Overview #
+## Overview ##
 
 This is software for a cellular asset tracker. The tracker monitors GPS location and temperature, reporting data to Salesforce at a set interval. If a change in the GPS location is noted the device will report it's new location immediately. 
 
 Please note: 
 - This version of the software is not battery efficient. As use cases are specified the code can then be optimized to conserve battery base for that use case. 
-- Onboard breakout board temperature sensor is currently used for temperature monitoring. Future software will update to use a bluetooth temperature sensor.
+- Onboard breakout board temperature sensor is currently used for temperature monitoring. As use cases are specified external temperature sensors (ie bluetooth) can be used instead.
 
-
-## Hardware #
+## Hardware ##
 
 Basic tracker hardware:
 
@@ -18,28 +17,25 @@ Basic tracker hardware:
 - u-blox M8N GPS module
 - [3.7V 2000mAh battery from Adafruit](https://www.adafruit.com/product/2011?gclid=EAIaIQobChMIh7uL6pP83AIVS0sNCh1NNQUsEAQYAiABEgKFA_D_BwE)
 
-Optional/Future improvements: 
-
-- WiFi/bluetooth click
-- BLE iBeacon temperature sensor 
-
 ## Setup ##
 
 ### Ublox Assist Now ### 
 
-This project uses u-blox AssistNow services, and requires and account and authorization token from u-blox. To apply for an account register [here](http://www.u-blox.com/services-form.html). 
+This project uses u-blox AssistNow services, and requires and account and authorization token from u-blox. To apply for an account register [here](http://www.u-blox.com/services-form.html). Please note this process may take a couple days before a token is issued.
 
 ### Salesforce Configuration ### 
 
 TODO: Add instructions re: setting up Salesforce account, creating events etc.
 
+### Salesforce Authentication ###
+
 To authenticate your device with Salesforce you will need to create a *Salesforce Connected Application*. The settings are slightly different based on you you choose to authenticate with Salesforce. Select either the [Device OAuth Flow](#device-oauth-flow) or [JWT OAuth Flow](#jwt-oauth-flow) and follow the setup instructions in that section. Then, when finished with the steps in the authentication section, skip ahead to the [Electric Imp Configuration](#electric-imp-configuration) section to continue setting up your project.
 
-### Device OAuth Flow ### 
+#### Device OAuth Flow ####
 
 The OAuth2.0 Device flow may be easier when getting started but is not recommended for production, since each device will require a physical log-in from a browser. In this flow the imp will log a url and a code that will used to load a Salesforce log-in page. That log-in will then authorize the device to send data to Salesforce. 
 
-#### Create A Salesforce Connected Application ####
+##### Create A Salesforce Connected Application #####
 
 - Log into Salesforce
 - Select *Setup* then in the sidebar under *Platform Tools* -> *Apps* select *App Manager*
@@ -59,7 +55,7 @@ The OAuth2.0 Device flow may be easier when getting started but is not recommend
     - Click *Save*
 - Copy down your **Consumer Key** and **Consumer Secret**. These will need to be added to your Squirrel code.
 
-#### Authorizing Your Device ####
+##### Authorizing Your Device #####
 
 These steps will need to be followed once your device starts to run the Squirrel application code. Please skim through them so you are familiar with what you need to look out for. 
 
@@ -87,11 +83,11 @@ Your device is now authorized and will begin sending data to Salesforce.
 
 Please skip ahead to [Electric Imp Configuration](#electric-imp-configuration) section to continue setting up your project.
 
-### JWT OAuth Flow ###
+#### JWT OAuth Flow ####
 
 The OAuth2.0 JWT flow is recommended for production. The JWT bearer flow supports the RSA SHA256 algorithm, which uses an uploaded certificate as the signing secret. In this example we will use `openssl` to generate a certificate. 
 
-#### Generate Certificate ####
+##### Generate Certificate #####
 
 - Somewhere outside of your project directory create a folder that will not be shared to store your certificates for this application. It is important to keep track of these files since they contain sensitive information that others can use to compromise your system.
 
@@ -130,12 +126,9 @@ The OAuth2.0 JWT flow is recommended for production. The JWT bearer flow support
     - `server.csr` 
     - `server.key` - this is the key that will be used in your code to authenticate your device
 
-#### Create And Configure Salesforce Connected Application ####
+##### Create A Salesforce Connected Application #####
 
-Log into salesforce. 
-
-##### Create App #####
-
+- Log into Salesforce
 - Select *Setup* then in the sidebar under *Platform Tools* -> *Apps* select *App Manager*
 - Click *New Connected App* and fill out the following:
     - Under *Basic Information*
@@ -153,7 +146,7 @@ Log into salesforce.
     - Click *Save*
 - Copy down your **Consumer Key** and **Consumer Secret**. These will need to be added to your Squirrel code.
 
-##### Edit Policies #####
+##### Edit Salesforce OAuth Policies #####
 
 Edit the policies to enable the connected app to circumvent the manual login process. Under your application:
 
@@ -163,7 +156,7 @@ Edit the policies to enable the connected app to circumvent the manual login pro
         - Select *Admin approved users are pre-authorized* from *Permitted Users* dropdown
     - Click *Save*
  
-##### Create Permission Set #####
+##### Create Salesforce Permission Set #####
 
 Create a permission set and assign pre-authorized users for this connected app.
 
@@ -191,7 +184,7 @@ Sign up for an Electric Imp account [here](https://impcentral.electricimp.com), 
 
 #### Configuring a VS Code Project ####
 
-This project has been written using [VS code plug-in](https://github.com/electricimp/vscode). All configuration settings and pre-processed files have been excluded, so sensitive keys are not exposed. Follow the instructions [here](https://github.com/electricimp/vscode#installation) to install the plug-in and create a project. 
+To make the code scalable and maintainable, this project has been written using [VS code plug-in](https://github.com/electricimp/vscode). All configuration settings and the pre-processed squirrel files have been excluded, so sensitive keys are not exposed. Follow the instructions [here](https://github.com/electricimp/vscode#installation) to install the plug-in and create a project. 
 
 #### Updating Project Configuration Settings ####
 
@@ -248,22 +241,22 @@ _authType = SF_AUTH_TYPE.DEVICE;
 
 #### Deploying Your Application Code ####
 
-You are now ready to upload and deploy your application code. To update code:
+You are now ready to upload and deploy your application code. To deploy code:
 
-- Open the Command Palette by selecting *Command Palette...* in the *View* menu dropdown
-- In the pop-up select *imp: Deploy Project*
+- Open the Command Palette by selecting *Command Palette...* from the *View* menu
+- In the pop-up type/select *imp: Deploy Project*
 
 or 
 
 - Use the keyboard shortcut `CTRL+SHIFT+X`
 
-You should now see device logs in the *OUTPUT* tab. 
+You may need to select your device if it is not assigned to your device group yet. Once your device is assigned, you should now see device logs in the *OUTPUT* tab. 
 
 If you used the [Device OAuth Flow](#device-oauth-flow) look for in the logs to find the URL and Code to authorize your device. See detailed instructions on how to use them [here](#authorizing-your-device).
 
 ### Offline logging ###
 
-For development purposes uart logging is recommended to see offline device logs. Current code uses hardware.uartDCAB (A: RTS, B: CTS, C: RX, D: TX) for uart logging. 
+For development purposes this project also supports uart logging, this is recommended if you need to see logs when a device is running offline. Current code uses hardware.uartDCAB (A: RTS, B: CTS, C: RX, D: TX) for uart logging. 
 
 ## Customization ##
 
@@ -274,8 +267,8 @@ Possible optimizations:
 - Update code to support BLE temperature sensor
 - Add temperature and humidity thresholds that send alerts when crossed
 - Add listeners from Salesforce (Bayeux client) for updating settings (ie temp thresholds, reporting intervals etc)
-- Update code to let device disconnect and sleep to conserve power
+- Update the device code to disconnect and sleep between check-ins and reporting to conserve power
 
-# License
+# License #
 
 Code licensed under the [MIT License](./LICENSE).

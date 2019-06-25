@@ -66,6 +66,7 @@ class LosantTracker {
         if ("humid" in data) payload.data.humidity <- data.humid;
         if ("lat" in data && "lng" in data) payload.data.location <- format("%s,%s", data.lat, data.lng);
         if ("dist" in data) payload.data.distance <- data.dist; 
+        if ("fix" in data && "accuracy" in data.fix) payload.data.fixaccuracy <- data.fix.accuracy; 
 
         ::debug("[Losant] Sending device state to Losant:");
         ::debug(http.jsonencode(payload));
@@ -211,6 +212,10 @@ class LosantTracker {
                 "name"     : "distance",
                 "dataType" : "number"
             },
+            {
+                "name"     : "fixaccuracy",
+                "dataType" : "number"
+            }
         ];
     }
 }

@@ -138,8 +138,8 @@ class Location {
         local pLat = _convertToDecDegFloat(prevLat);
         local pLng = _convertToDecDegFloat(prevLng);
 
-        ::debug("[Location] new lat: " + nLat + " new lng: " + nLng);
-        ::debug("[Location] old lat: " + pLat + " old lng: " + pLng);
+        ::debug(format("[Location] new lat: %.10f new lng: %.10f", nLat, nLng));
+        ::debug(format("[Location] old lat: %.10f old lng: %.10f", pLat, pLng));
 
         local dlat = _deg2rad(nLat - pLat);
         local dlng = _deg2rad(nLng - pLng);

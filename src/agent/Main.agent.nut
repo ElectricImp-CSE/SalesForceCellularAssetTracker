@@ -81,7 +81,7 @@ class MainController {
         cloud = Cloud(persist);
 
         // Quick map checker to verify location working as intended
-        lt = LosantTracker()
+        lt = LosantTracker();
     }
 
     function processReport(msg, reply) {

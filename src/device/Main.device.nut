@@ -62,15 +62,15 @@ const CHECK_IN_TIME_SEC      = 30; // 20
 const REPORT_TIME_SEC        = 300; // 300; 
 
 // Accuracy of GPS fix in meters
-const LOCATION_ACCURACY      = 10;
-const LOCATION_TIMEOUT_SEC   = 70; 
+const LOCATION_ACCURACY      = 7;
+const LOCATION_TIMEOUT_SEC   = 90; 
 const OFFLINE_ASSIST_REQ_MAX = 43200; // Limit requests to every 12h (12 * 60 * 60) 
 // Constant used to validate imp's timestamp (must be a year greater than 2000)
 const VALID_TS_YEAR          = 2019;
 // Low battery alert threshold in percentage
 const BATTERY_LOW_THRESH     = 10;
-// Distance threshold in meters
-const DISTANCE_THRESHOLD_M   = 20;
+// Distance threshold in meters (~100ft)
+const DISTANCE_THRESHOLD_M   = 30;
 
 class MainController {
 

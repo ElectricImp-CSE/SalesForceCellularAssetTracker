@@ -44,7 +44,6 @@ The OAuth2.0 Device flow may be easier when getting started but is not recommend
         - Enter a name for your app
         - Enter your email
     - Under *API (Enable OAuth Settings)*
-        - 
         - Check Enable OAuth Settings
         - Enter a callback URL, ie `http://localhost:1717/OauthRedirect` 
         - Check *Enable for Device Flow*

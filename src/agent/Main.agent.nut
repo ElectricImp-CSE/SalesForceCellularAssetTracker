@@ -81,7 +81,7 @@ class MainController {
         cloud = Cloud(persist);
 
         // Quick map checker to verify location working as intended
-        lt = LosantTracker();
+        // lt = LosantTracker();
     }
 
     function processReport(msg, reply) {
@@ -112,7 +112,7 @@ class MainController {
         cloud.send(report);
 
         // Send device data to Losant dashboard
-        lt.sendData(report);
+        // lt.sendData(report);
     }
 
     function getAssist(msg, reply) {

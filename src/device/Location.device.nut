@@ -128,6 +128,10 @@ class Location {
         }
     }
 
+    function writeUtcTimeAssist() {
+        assist.writeUtcTimeAssist();
+    }
+
     // Returns boolean if differences in GPS data have exeeded the threshold
     function filterGPS(newLat, newLng, prevLat, prevLng, threshold) {
         local nLat = _convertToDecDegFloat(newLat);

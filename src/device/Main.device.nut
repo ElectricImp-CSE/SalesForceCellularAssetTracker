@@ -57,9 +57,9 @@
 // NOTE: These timings have an impact on battery life. Current setting are not 
 // battery efficient. 
 // Wake every x seconds to check if report should be sent (location changed, etc)
-const CHECK_IN_TIME_SEC      = 30; // 20
+const CHECK_IN_TIME_SEC      = 30;
 // Wake every x seconds to send a report, regaurdless of check results
-const REPORT_TIME_SEC        = 300; // 300; 
+const REPORT_TIME_SEC        = 300;
 
 // Accuracy of GPS fix in meters
 const LOCATION_ACCURACY      = 7;

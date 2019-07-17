@@ -195,6 +195,7 @@ Update settings/imp.config file. This file will store your application's sensiti
     - *UBLOX_ASSISTNOW_TOKEN* value should be updated with your u-blox Assist Now authorization token
     - *SF_CONSUMER_KEY* value should be updated with your Salesforce connected app's consumer key
     - *SF_CONSUMER_SECRET* value should be updated with your Salesforce connected app's consumer secret
+    - *SF_INSTANCE_URL* hard-coded data endpoint URL for your app ie "yourappname.my.salesforce.com" (future updates will get this from oauth response along with token)
 - If using the JWT Authentication flow you will need to update these *builderSettings* as well:
     - *SF_JWT_PVT_KEY* value should be updated with the contents of the private key file generated with openssl in the [JWT Auth Flow Generate Certificate](#generate-certificate). NOTE: This file may need to be altered slightly so the contents become a single line separated with the new line char `\n` instead of a multi-line string
     - *SF_USERNAME* value should be updated with the account username that matches your connected app's account permissions
@@ -210,6 +211,8 @@ Example imp.config file:
   "builderSettings": {
     "variable_definitions": {
       "UBLOX_ASSISTNOW_TOKEN": "<YOUR-UBLOX-ASSIST-NOW-TOKEN-HERE>",
+      "SF_AUTH_URL" : "https://login.salesforce.com/services/oauth2/token",
+      "SF_INSTANCE_URL" : "<YOUR-SALESFORCE-INSTANCE-URL>",
       "SF_CONSUMER_KEY" : "<YOUR-SALESFORCE-CONSUMER-KEY-HERE>",
       "SF_CONSUMER_SECRET" : "<YOUR-SALESFORCE-CONSUMER-SECRET-HERE>",
       "SF_JWT_PVT_KEY" : "<YOUR-SALESFORCE-JWT-PRIVATE-KEY-HERE>",

@@ -41,7 +41,7 @@ const SF_EVENT_DEV_ID     = "Device_Id__c";
 // const SF_EVENT_DATA_BEACON_ID = "Beacon_Id__c";
 // const SF_EVENT_DEV_ID         = "Tote_Id__c";
 
-local SF_INSTANCE_URL     = "@{SF_INSTANCE_URL_TEST}";      // Betsy test app
+local SF_INSTANCE_URL     = "@{SF_INSTANCE_URL}";      // Betsy test app
 const SF_VERSION          = "v46.0";
 
 enum SF_AUTH_TYPE {

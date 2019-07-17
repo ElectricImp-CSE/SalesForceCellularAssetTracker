@@ -38,9 +38,9 @@ class SalesForceOAuth2JWT {
     constructor() {
         // NOTE: 365 day cert created on 6/18/19
         local userSettings = { 
-            "iss"        : "@{SF_CONSUMER_KEY_TEST}",
-            "jwtSignKey" : @"@{SF_JWT_PVT_KEY_TEST}", 
-            "sub"        : "@{SF_USERNAME_TEST}",
+            "iss"        : "@{SF_CONSUMER_KEY}",
+            "jwtSignKey" : @"@{SF_JWT_PVT_KEY}", 
+            "sub"        : "@{SF_USERNAME}",
             "scope"      : ""
         };
 

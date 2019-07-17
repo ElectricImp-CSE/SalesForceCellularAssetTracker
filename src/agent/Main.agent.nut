@@ -1,3 +1,5 @@
+// Agent Main Application File
+// -----------------------------------------------------------------------
 // MIT License
 
 // Copyright 2019 Electric Imp
@@ -22,8 +24,6 @@
 // ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 // OTHER DEALINGS IN THE SOFTWARE.
 
-// Agent Main Application File
-
 // Libraries 
 #require "MessageManager.lib.nut:2.4.0"
 #require "UBloxAssistNow.agent.lib.nut:1.0.0"
@@ -43,7 +43,6 @@
 @include __PATH__ + "/Cloud.agent.nut"
 @include __PATH__ + "/LosantDash.agent.nut"
 @include __PATH__ + "/Location.agent.nut"
-
 
 // Main Application
 // -----------------------------------------------------------------------

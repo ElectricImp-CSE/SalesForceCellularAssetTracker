@@ -27,6 +27,18 @@ This project uses u-blox AssistNow services, and requires and account and author
 
 TODO: Add instructions re: setting up Salesforce account, creating events etc.
 
+See [platform event trailhead](https://trailhead.salesforce.com/en/content/learn/modules/platform_events_basics/platform_events_define_publish) for how to create a platform event. This code uses the REST API to publish events.  
+
+Platform event and custom field names are stored as constants in the agent > Cloud.agent.nut file. Current code uses the following names: 
+```
+const SF_EVENT_NAME       = "Device_Condition__e";
+const SF_EVENT_DATA_LAT   = "Latitude__c";
+const SF_EVENT_DATA_LNG   = "Longitude__c";
+const SF_EVENT_DATA_TEMP  = "Temperature__c";
+const SF_EVENT_DATA_HUMID = "Humidity__c";
+const SF_EVENT_DEV_ID     = "Device_Id__c";
+```
+
 ### Salesforce Authentication ###
 
 To authenticate your device with Salesforce you will need to create a *Salesforce Connected Application*. The settings are slightly different based on you you choose to authenticate with Salesforce. Select either the [Device OAuth Flow](#device-oauth-flow) or [JWT OAuth Flow](#jwt-oauth-flow) and follow the setup instructions in that section. Then, when finished with the steps in the authentication section, skip ahead to the [Electric Imp Configuration](#electric-imp-configuration) section to continue setting up your project.

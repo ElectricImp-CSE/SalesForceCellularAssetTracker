@@ -53,12 +53,12 @@ class SalesForceOAuth2Device {
         if (token != null) {
             // We have a valid token already
             ::debug("[SalesForceOAuth2Device] Salesforce access token aquired.");
-            cb(null, token);
+            cb(null, token, null);
         } else {
             // Acquire a new access token
             local status = client.acquireAccessToken(
-                function(resp, err) {
-                    cb(err, resp);
+                function(token, err, resp = null) {
+                    cb(err, token, resp);
                 }.bindenv(this), 
                 function(url, code) {
                     ::log("-------------------------------------------------------------------------------------");

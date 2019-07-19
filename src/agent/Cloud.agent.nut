@@ -41,8 +41,8 @@ const SF_EVENT_DEV_ID     = "Device_Id__c";
 // const SF_EVENT_DATA_BEACON_ID = "Beacon_Id__c";
 // const SF_EVENT_DEV_ID         = "Tote_Id__c";
 
-local SF_INSTANCE_URL     = "@{SF_INSTANCE_URL}";      // Betsy test app
-const SF_VERSION          = "v46.0";
+local SF_DEFAULT_INSTANCE_URL = "@{SF_INSTANCE_URL}";      // Betsy test app
+const SF_VERSION              = "v46.0";
 
 enum SF_AUTH_TYPE {
     JWT, 
@@ -78,14 +78,30 @@ class Cloud {
 
         // Store reference to persistant storage class instance
         _persist = persist;
+        // Use this for testing auth, comment out when not testing auth
+        // Erases everything in server.save
+        _persist.erase();
+
+        // Select DEVICE or JWT Authentication
+        _authType = SF_AUTH_TYPE.JWT;
+        if (_authType != _persist.getSFAuthType()) {
+            // Erase stored Salesforce auth data if we have changed how
+            // we are authenticating
+            _persist.erase(PERSIST_ERASE_SCOPE.SF_AUTH);
+            _persist.setSFAuthType(_authType);
+        }
 
         // Initialize Saleforce library 
         _force = SalesforceExt(SF_VERSION);
-        // Set base url for sending events
-        _force.setInstanceUrl(SF_INSTANCE_URL);
-
-        // Select Device or JWT Authentication
-        _authType = SF_AUTH_TYPE.JWT;
+        // Try to retrieve instance URL
+        local instanceURL = _persist.getSFInstanceURL();
+        if (instanceURL != null) {
+            _force.setInstanceUrl(instanceURL);
+        } else {
+            _force.setInstanceUrl(SF_DEFAULT_INSTANCE_URL);
+        }
+        
+        // Authorize device
         _authorize();
     }
 
@@ -163,6 +179,7 @@ class Cloud {
             _force.setToken(token);
 
             // Ping Saleforce to see if token is valid
+            // NOTE: SF must recognize device or ping will fail
             local pingData = { [SF_EVENT_DEV_ID] = _impDeviceId };
             _force.request("POST", _sendUrl, http.jsonencode(pingData), _onAuthPing.bindenv(this));
         } else {
@@ -172,8 +189,9 @@ class Cloud {
 
     function _onAuthPing(err, resp) {
         if (err != null) { 
-            local e = err[0];
-            local errCode = ("errorCode" in e) ? e.errorCode : null;
+            local e = (typeof err == "array") ? err[0] : err;
+            local errIsTable = typeof e == "table";
+            local errCode = (errIsTable && "errorCode" in e) ? e.errorCode : null;
             ::debug("[Cloud] ping error code: " + errCode);
 
             switch (errCode) {
@@ -185,7 +203,7 @@ class Cloud {
                     break;
                 default: 
                     ::debug("[Cloud] Salesforce send ping unexpected error occurred: ");
-                    ::error(http.jsonencode(err));
+                    (errIsTable) ? ::error(http.jsonencode(err)) : ::err(err);
             }
 
             // Our stored token is bad, erase it from storage and SF instance
@@ -202,9 +220,11 @@ class Cloud {
     function _triggerOAuthFlow() {
         switch (_authType) {
             case SF_AUTH_TYPE.JWT:
+                ::debug("[Cloud] OAuth type: JWT");
                 _oauth = SalesForceOAuth2JWT();
                 break;
             case SF_AUTH_TYPE.DEVICE:
+            ::debug("[Cloud] OAuth type: DEVICE");
                 _oauth = SalesForceOAuth2Device();
                 break;
             default: 
@@ -215,7 +235,7 @@ class Cloud {
         _oauth.getToken(_onGetOAuthToken.bindenv(this))
     }
 
-    function _onGetOAuthToken(err, token) {
+    function _onGetOAuthToken(err, token, resp = null) {
         if (err) {
             ::error("[Cloud] Unable to log into Salesforce: " + err);
             return;
@@ -223,6 +243,17 @@ class Cloud {
 
         _force.setToken(token);
         _persist.setSFToken(token);
+
+        if (resp != null) {
+            ::debug(http.jsonencode(resp));
+            if ("instance_url" in resp) {
+                local url = resp.instance_url;
+                ::debug("[Cloud] Instance URL: " + url);
+                _force.setInstanceUrl(url);
+                _persist.setSFInstanceURL(url);
+            }
+        }
+
     }
 
 }

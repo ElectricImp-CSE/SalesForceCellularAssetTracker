@@ -1,5 +1,5 @@
 // -----------------------------------------------------------------------
-// Patch for OAuth2 Library
+// Patch for OAuth2 Library Device Flow Client
 @
 @ // MIT License
 @
@@ -46,7 +46,7 @@ class OAuth2LibDeviceExt extends OAuth2.DeviceFlow.Client {
     //
     function _requestCode(tokenCallback, notifyUserCallback) {
         if (_isBusy()) {
-            ::log("[OAuth2LibDeviceExt] Resetting ongoing session with token id: " + _currentTokenId);
+            ::debug("[OAuth2LibDeviceExt] Resetting ongoing session with token id: " + _currentTokenId);
             _reset();
         }
 
@@ -54,9 +54,9 @@ class OAuth2LibDeviceExt extends OAuth2.DeviceFlow.Client {
         _currentTokenId++;
 
         local data = {
-            "scope": _scope,
-            "client_id": _clientId,
-            "response_type": _grantType     // ** Change from library, line added 
+            "scope"         : _scope,
+            "client_id"     : _clientId,
+            "response_type" : _grantType     // ** Change from library, line added 
         };
 
         _doPostWithHttpCallback(_loginHost, data, _requestCodeCallback, [tokenCallback, notifyUserCallback]);
@@ -83,10 +83,10 @@ class OAuth2LibDeviceExt extends OAuth2.DeviceFlow.Client {
 
         if (date().time > _expiresAt) {
             _reset();
-            local msg = "Token acquiring timeout";
-            ::log("[OAuth2LibDeviceExt] " + msg);
-            cb(null, msg);
-            return msg;
+            local err = "Token acquiring timeout";
+            ::debug("[OAuth2LibDeviceExt] " + err);
+            cb(null, err);
+            return err;
         }
 
         local data = {
@@ -95,7 +95,7 @@ class OAuth2LibDeviceExt extends OAuth2.DeviceFlow.Client {
             "grant_type"    : "device",         // ** Change from library, variable updated 
         };
 
-        if (null != _clientSecret)  data.client_secret <- _clientSecret;
+        if (_clientSecret != null)  data.client_secret <- _clientSecret;
 
         _doPostWithHttpCallback(_tokenHost, data, _doPollCallback, [cb]);
     }
@@ -124,7 +124,146 @@ class OAuth2LibDeviceExt extends OAuth2.DeviceFlow.Client {
 
         return null;
     }
+
+    // Device Authorization Response handler.
+    // Parameters:
+    //          resp                - httpresponse object
+    //          tokenReadyCallback  - The handler to be called when access token is acquired
+    //                                or error is observed. The handle's signature:
+    //                                  tokenReadyCallback(token, error), where
+    //                                      token   - access token string
+    //                                      error   - error description string
+    //
+    //          notifyUserCallback  -  The handler to be called when user action is required.
+    //                                  https://tools.ietf.org/html/draft-ietf-oauth-device-flow-05#section-3.3
+    //                                  The handler's signature:
+    //                                      notifyUserCallback(verification_uri, user_code), where
+    //                                          verification_uri  - the URI the user need to use for client authorization
+    //                                          user_code         - the code the user need to use somewhere at authorization server
+    // Returns: Nothing
+    function _requestCodeCallback(resp, cb, notifyUserCallback) {
+        try {
+            local body = http.jsondecode(resp.body);
+            if (null != _extractPollData(body)) {
+                // no url/code - missing required data error
+                _reset();
+                local err = "Something went wrong during code request: " + resp.body;
+                ::debug("[OAuth2LibDeviceExt] " + err);
+                // token, error, resp
+                cb(null, err, resp);
+                return;
+            }
+
+            _changeStatus(Oauth2DeviceFlowState.WAIT_USER);
+
+            if (notifyUserCallback) notifyUserCallback(_verificationUrl, _userCode);
+
+            _schedulePoll(cb);
+
+        } catch (e) {
+            // parsing error
+            _reset();
+            local err = "Provider data processing error: " + e;
+            ::debug("[OAuth2LibDeviceExt] " + err);
+            // token, error, resp
+            cb(null, err, resp);
+        }
+    }
+
+    // Token refresh response handler
+    // Parameters:
+    //          resp  - httpresponse object
+    //          cb    - The handler to be called when access token is acquired
+    //                  or error is observed. The handle's signature:
+    //                     tokenReadyCallback(token, error), where
+    //                          token   - access token string
+    //                          error   - error description string
+    // Returns: Nothing
+    function _doRefreshTokenCallback(resp, cb) {
+        try {
+            _changeStatus(Oauth2DeviceFlowState.IDLE);
+            local body = http.jsondecode(resp.body);
+            if (null != _extractToken(body)) {
+                // no token error
+                _reset();
+                local err = "Something went wrong during refresh: " + resp.body;
+                ::debug("[OAuth2LibDeviceExt] " + err);
+                // token, error, resp
+                cb(null, err, resp);
+            } else {
+                // token, error, resp body
+                cb(_accessToken, null, body);
+            }
+        } catch (e) {
+            // parsing error
+            _reset();
+            local err = "Token refreshing error: " + e;
+            ::debug("[OAuth2LibDeviceExt] " + err);
+            // token, error, resp
+            cb(null, err, resp);
+        }
+    }
+
+    // Handles Device Access Token Response.
+    //          resp  - httpresponse object
+    //          cb    - The handler to be called when access token is acquired
+    //                  or error is observed. The handle's signature:
+    //                     tokenReadyCallback(token, error), where
+    //                        token   - access token string
+    //                        error   - error description string
+    // Returns:
+    //      error description if Client doesn't wait device authorization from the user
+    //                        or if time to wait for user action has expired,
+    //      Null otherwise
+    function _doPollCallback(resp, cb) {
+        try {
+            local body = http.jsondecode(resp.body);
+            local statusCode = resp.statuscode;
+
+            if (statusCode == 200) {
+                ::debug("[OAuth2LibDeviceExt] Polling success.");
+
+                if (null == _extractToken(body)) {
+                    _changeStatus(Oauth2DeviceFlowState.IDLE);
+
+                    // release memory
+                    _cleanUp(false);
+
+                    cb(_accessToken, null, body);
+                } else {
+                    _reset();
+                    cb(null, "Invalid server response: " + resp.body, resp);
+                }
+            } else if ( (statusCode/100) == 4) {
+                local error = body.error;
+                ::debug("[OAuth2LibDeviceExt] Polling error: " + error);
+
+                if (error == "authorization_pending") {
+                    _schedulePoll(cb);
+                } else if (error == "slow_down") {
+                    _pollTime *= 2;
+                    imp.wakeup(_pollTime, function() {
+                        _poll(cb);
+                    }.bindenv(this));
+                } else {
+                    // all other errors are hard
+                    _reset();
+                    cb(null, error, resp);
+                }
+            } else {
+                local err = "Unexpected server response code: " + statusCode;
+                ::debug("[OAuth2LibDeviceExt] " + err);
+                _reset();
+                cb(null, err, resp);
+            }
+        } catch (e) {
+            local err = "General server poll error: " + e;
+            _reset();
+            ::debug("[OAuth2LibDeviceExt] " + err);
+            cb(null, err, resp);
+        }
+    }
 }
 
-// End Patch for OAuth2 Library
+// End Patch for OAuth2 Library Device Flow Client
 // -----------------------------------------------------------------------

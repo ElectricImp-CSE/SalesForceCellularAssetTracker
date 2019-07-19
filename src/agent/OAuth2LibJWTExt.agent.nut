@@ -1,5 +1,5 @@
 // -----------------------------------------------------------------------
-// Salesforce JWT OAuth2 Application File
+// Patch for OAuth2 Library JWT Flow Client
 @
 @ // MIT License
 @
@@ -25,46 +25,30 @@
 @ // ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 @ // OTHER DEALINGS IN THE SOFTWARE.
 
-// Step by step setup instructions for Salesforce JWT OAuth can be found here:
-// https://trailhead.salesforce.com/en/content/learn/modules/sfdx_travis_ci/sfdx_travis_ci_connected_app
-
-// Manages Salesforce OAuth2 via JWT Flow  
+// Patch for OAuth2 Library, JWT Flow Client class
 // Dependencies: OAuth2 library 
-// Initializes: OAuth2 library
-class SalesForceOAuth2JWT {
+class OAuth2LibJWTExt extends OAuth2.JWTProfile.Client {
 
-    client = null;
-
-    constructor() {
-        // NOTE: 365 day cert created on 6/18/19
-        local userSettings = { 
-            "iss"        : "@{SF_CONSUMER_KEY}",
-            "jwtSignKey" : @"@{SF_JWT_PVT_KEY}", 
-            "sub"        : "@{SF_USERNAME}",
-            "scope"      : ""
-        };
-
-        local providerSettings = {
-            "tokenHost" : "@{SF_AUTH_URL}"
-        }
-
-        client = OAuth2LibJWTExt(providerSettings, userSettings);
-    }
-
-    function getToken(cb) {
-        local token = client.getValidAccessTokenOrNull();
-        if (token != null) {
-            // We have a valid token already
-            ::debug("[SalesForceOAuth2JWT] Salesforce access token aquired.");
-            cb(null, token, null);
+    // Processes response from OAuth provider
+    // Parameters:
+    //          resp  - httpresponse instance
+    //
+    // Returns: Nothing
+    function _doTokenCallback(resp) {
+        if (resp.statuscode == 200) {
+            // Cache the new token, pull in the expiry a little just in case
+            local body = http.jsondecode(resp.body);
+            local err = client._extractToken(body);
+            userCallback(client._accessToken, err, body);
         } else {
-            // Acquire a new access token
-            client.acquireAccessToken(function(newToken, err, resp = null) {
-                cb(err, newToken, resp);
-            }.bindenv(this));
+            // Error getting token
+            local err = "Error getting token: " + resp.statuscode + " " + resp.body;
+            ::log("[OAuth2LibJWTExt]: " + err);
+            userCallback(null, err, resp);
         }
-    }
+    }    
+
 }
 
-// End Salesforce JWT OAuth2 Application File
+// End Patch for OAuth2 Library JWT Flow Client
 // -----------------------------------------------------------------------

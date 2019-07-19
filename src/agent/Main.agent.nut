@@ -61,7 +61,9 @@ class MainController {
         // Initialize Logger 
         Logger.init(LOG_LEVEL.DEBUG);
 
+        ::debug("--------------------------------------------------------------------------");
         ::debug("[Main] Agent started...");
+        ::debug("--------------------------------------------------------------------------");
 
         // Initialize Assist Now Location Helper
         loc = Location();

@@ -79,7 +79,7 @@ class Persist {
     }
 
     function getSFToken() {
-        return ("token" in _sfAuth) ? _sfAuth.sfToken : null;
+        return ("token" in _sfAuth) ? _sfAuth.token : null;
     }
 
     function setSFToken(token) {

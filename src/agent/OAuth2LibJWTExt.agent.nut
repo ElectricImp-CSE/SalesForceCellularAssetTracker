@@ -43,7 +43,7 @@ class OAuth2LibJWTExt extends OAuth2.JWTProfile.Client {
         } else {
             // Error getting token
             local err = "Error getting token: " + resp.statuscode + " " + resp.body;
-            ::log("[OAuth2LibJWTExt]: " + err);
+            ::debug("[OAuth2LibJWTExt]: " + err);
             userCallback(null, err, resp);
         }
     }    

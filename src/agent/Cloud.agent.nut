@@ -41,7 +41,6 @@ const SF_EVENT_DEV_ID     = "Device_Id__c";
 // const SF_EVENT_DATA_BEACON_ID = "Beacon_Id__c";
 // const SF_EVENT_DEV_ID         = "Tote_Id__c";
 
-local SF_DEFAULT_INSTANCE_URL = "@{SF_INSTANCE_URL}";      // Betsy test app
 const SF_VERSION              = "v46.0";
 
 enum SF_AUTH_TYPE {
@@ -80,7 +79,7 @@ class Cloud {
         _persist = persist;
         // Use this for testing auth, comment out when not testing auth
         // Erases everything in server.save
-        _persist.erase();
+        // _persist.erase();
 
         // Select DEVICE or JWT Authentication
         _authType = SF_AUTH_TYPE.JWT;
@@ -95,11 +94,7 @@ class Cloud {
         _force = SalesforceExt(SF_VERSION);
         // Try to retrieve instance URL
         local instanceURL = _persist.getSFInstanceURL();
-        if (instanceURL != null) {
-            _force.setInstanceUrl(instanceURL);
-        } else {
-            _force.setInstanceUrl(SF_DEFAULT_INSTANCE_URL);
-        }
+        if (instanceURL != null) _force.setInstanceUrl(instanceURL);
         
         // Authorize device
         _authorize();

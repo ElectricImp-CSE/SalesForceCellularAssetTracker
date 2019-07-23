@@ -34,8 +34,8 @@ class SalesForceOAuth2Device {
 
     constructor() {
         local userConfig = { 
-            "clientId"     : "@{SF_CONSUMER_KEY}",
-            "clientSecret" : "@{SF_CONSUMER_SECRET}",
+            "clientId"     : "@{SF_CONSUMER_KEY_RFID}",
+            "clientSecret" : "@{SF_CONSUMER_SECRET_RFID}",
             "scope"        : "api refresh_token"
         };
 

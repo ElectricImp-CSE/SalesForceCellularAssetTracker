@@ -51,6 +51,9 @@
     BT_REG_ON       <- hardware.pinYK;
     BT_UART_RTS     <- hardware.pinS;
 
+    RFID_UART       <- hardware.uartYABCD;
+    RFID_EN         <- hardware.pinYN;
+
     // Recommended for offline logging, remove when in production    
     LOGGING_UART    <- hardware.uartDCAB;
 }

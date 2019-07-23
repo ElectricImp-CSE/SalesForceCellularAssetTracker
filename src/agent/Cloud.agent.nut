@@ -26,20 +26,22 @@
 @ // OTHER DEALINGS IN THE SOFTWARE.
 
 // Salesforce Event Strings Test App
-const SF_EVENT_NAME       = "Device_Condition__e";
-const SF_EVENT_DATA_LAT   = "Latitude__c";
-const SF_EVENT_DATA_LNG   = "Longitude__c";
-const SF_EVENT_DATA_TEMP  = "Temperature__c";
-const SF_EVENT_DATA_HUMID = "Humidity__c";
-const SF_EVENT_DEV_ID     = "Device_Id__c";
+// const SF_EVENT_NAME       = "Device_Condition__e";
+// const SF_EVENT_DATA_LAT   = "Latitude__c";
+// const SF_EVENT_DATA_LNG   = "Longitude__c";
+// const SF_EVENT_DATA_TEMP  = "Temperature__c";
+// const SF_EVENT_DATA_HUMID = "Humidity__c";
+// const SF_EVENT_DEV_ID     = "Device_Id__c";
 
-// Salesforce Event Strings Striker App
-// const SF_EVENT_NAME           = "Tote_Location_Changed__e";
-// const SF_EVENT_DATA_LAT       = "Latitude__c";
-// const SF_EVENT_DATA_LNG       = "Longitude__c";
-// const SF_EVENT_DATA_SIG       = "Signal_Strength__c";
-// const SF_EVENT_DATA_BEACON_ID = "Beacon_Id__c";
-// const SF_EVENT_DEV_ID         = "Tote_Id__c";
+// Salesforce Event Strings RFID App
+const SF_EVENT_NAME           = "Tote_Location_Changed__e";
+const SF_EVENT_DATA_LAT       = "Latitude__c";
+const SF_EVENT_DATA_LNG       = "Longitude__c";
+const SF_EVENT_DATA_TEMP      = "Temperature__c";
+const SF_EVENT_DATA_HUMID     = "Humidity__c";
+const SF_EVENT_DATA_SIG       = "Signal_Strength__c";
+const SF_EVENT_DATA_BEACON_ID = "Beacon_Id__c";
+const SF_EVENT_DEV_ID         = "Tote_Id__c";
 
 const SF_VERSION              = "v46.0";
 
@@ -82,7 +84,7 @@ class Cloud {
         // _persist.erase();
 
         // Select DEVICE or JWT Authentication
-        _authType = SF_AUTH_TYPE.JWT;
+        _authType = SF_AUTH_TYPE.DEVICE;
         if (_authType != _persist.getSFAuthType()) {
             // Erase stored Salesforce auth data if we have changed how
             // we are authenticating
@@ -123,8 +125,8 @@ class Cloud {
 
     function _formatReport(rawReport) {
         local report = { [SF_EVENT_DEV_ID] = _impDeviceId };
-        report[SF_EVENT_DATA_HUMID] <- ("humid" in rawReport) ? rawReport.humid : 0;
-        report[SF_EVENT_DATA_TEMP]  <- ("temp" in rawReport) ? rawReport.temp : 0;
+        // report[SF_EVENT_DATA_HUMID] <- ("humid" in rawReport) ? rawReport.humid : 0;
+        // report[SF_EVENT_DATA_TEMP]  <- ("temp" in rawReport) ? rawReport.temp : 0;
         report[SF_EVENT_DATA_LAT]   <- ("lat" in rawReport) ? rawReport.lat.tofloat() : 0;
         report[SF_EVENT_DATA_LNG]   <- ("lng" in rawReport) ? rawReport.lng.tofloat() : 0;
 

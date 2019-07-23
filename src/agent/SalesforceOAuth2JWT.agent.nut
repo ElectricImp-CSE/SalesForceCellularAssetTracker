@@ -38,9 +38,9 @@ class SalesForceOAuth2JWT {
     constructor() {
         // NOTE: 365 day cert created on 6/18/19
         local userSettings = { 
-            "iss"        : "@{SF_CONSUMER_KEY}",
-            "jwtSignKey" : @"@{SF_JWT_PVT_KEY}", 
-            "sub"        : "@{SF_USERNAME}"
+            "iss"        : "@{SF_CONSUMER_KEY_RFID}",
+            "jwtSignKey" : @"@{SF_JWT_PVT_KEY_RFID}", 
+            "sub"        : "@{SF_USERNAME_RFID}"
         };
 
         local providerSettings = {

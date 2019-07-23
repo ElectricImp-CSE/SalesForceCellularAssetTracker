@@ -230,7 +230,7 @@ class Cloud {
         _oauth.getToken(_onGetOAuthToken.bindenv(this))
     }
 
-    function _onGetOAuthToken(err, token, resp = null) {
+    function _onGetOAuthToken(err, token, resp) {
         if (err) {
             ::error("[Cloud] Unable to log into Salesforce: " + err);
             return;
@@ -240,12 +240,19 @@ class Cloud {
         _persist.setSFToken(token);
 
         if (resp != null) {
-            ::debug(http.jsonencode(resp));
-            if ("instance_url" in resp) {
-                local url = resp.instance_url;
-                ::debug("[Cloud] Instance URL: " + url);
-                _force.setInstanceUrl(url);
-                _persist.setSFInstanceURL(url);
+            try {
+                ::debug(resp.body);
+                local body = http.jsondecode(resp.body);
+                if ("instance_url" in body) {
+                    local url = body.instance_url;
+                    ::debug("[Cloud] Instance URL: " + url);
+                    _force.setInstanceUrl(url);
+                    _persist.setSFInstanceURL(url);
+                } else {
+                    throw resp.body;
+                }
+            } catch(e) {
+                ::error("[Cloud] Could not retrieve istance URL from authorization request: " + e);
             }
         }
 

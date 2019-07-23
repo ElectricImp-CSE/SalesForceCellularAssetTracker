@@ -31,13 +31,12 @@
 #require "Salesforce.agent.lib.nut:2.0.1"
 // #require "BayeuxClient.agent.lib.nut:1.0.0"
 #require "Losant.agent.lib.nut:1.0.0"
+@include "github:electricimp/OAuth-2.0/OAuth2.agent.lib.nut@develop"
 
 // Supporting files
 @include __PATH__ + "/../shared/Logger.shared.nut"
 @include __PATH__ + "/../shared/Constants.shared.nut"
 @include __PATH__ + "/SalesforceLibExt.agent.nut"
-@include __PATH__ + "/OAuth2LibDeviceExt.agent.nut"
-@include __PATH__ + "/OAuth2LibJWTExt.agent.nut"
 @include __PATH__ + "/SalesforceOAuth2Device.agent.nut"
 @include __PATH__ + "/SalesforceOAuth2JWT.agent.nut"
 @include __PATH__ + "/Persist.agent.nut"

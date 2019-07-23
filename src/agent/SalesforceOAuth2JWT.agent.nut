@@ -40,15 +40,18 @@ class SalesForceOAuth2JWT {
         local userSettings = { 
             "iss"        : "@{SF_CONSUMER_KEY}",
             "jwtSignKey" : @"@{SF_JWT_PVT_KEY}", 
-            "sub"        : "@{SF_USERNAME}",
-            "scope"      : ""
+            "sub"        : "@{SF_USERNAME}"
         };
 
         local providerSettings = {
             "tokenHost" : "@{SF_AUTH_URL}"
         }
 
-        client = OAuth2LibJWTExt(providerSettings, userSettings);
+        local settings = {
+            "includeResp" : true
+        }
+
+        client = OAuth2.JWTProfile.Client(providerSettings, userSettings, settings);
     }
 
     function getToken(cb) {
@@ -59,7 +62,7 @@ class SalesForceOAuth2JWT {
             cb(null, token, null);
         } else {
             // Acquire a new access token
-            client.acquireAccessToken(function(newToken, err, resp = null) {
+            client.acquireAccessToken(function(newToken, err, resp) {
                 cb(err, newToken, resp);
             }.bindenv(this));
         }

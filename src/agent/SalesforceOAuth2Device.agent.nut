@@ -42,10 +42,15 @@ class SalesForceOAuth2Device {
         local providerConfig = {
             "loginHost" : "@{SF_AUTH_URL}", 
             "tokenHost" : "@{SF_AUTH_URL}",
-            "grantType" : "device_code"
+            "grantType" : "device"
         }
 
-        client = OAuth2LibDeviceExt(providerConfig, userConfig);
+        local settings = {
+            "includeResp"    : true,
+            "addReqCodeData" : {"response_type" : "device_code"} 
+        }
+
+        client = OAuth2.DeviceFlow.Client(providerConfig, userConfig, settings);
     }
 
     function getToken(cb) {
@@ -57,7 +62,7 @@ class SalesForceOAuth2Device {
         } else {
             // Acquire a new access token
             local status = client.acquireAccessToken(
-                function(token, err, resp = null) {
+                function(token, err, resp) {
                     cb(err, token, resp);
                 }.bindenv(this), 
                 function(url, code) {

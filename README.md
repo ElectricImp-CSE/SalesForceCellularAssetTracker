@@ -78,16 +78,18 @@ Once your device is running, you will see logs similar to the following:
 2019-06-21 14:23:14-0700 [Agent]  [INFO]: [SalesForceOAuth2Device] URL: https://login.salesforce.com/setup/connect
 2019-06-21 14:23:14-0700 [Agent]  [INFO]: [SalesForceOAuth2Device] Code: 6VL44ZGC
 2019-06-21 14:23:14-0700 [Agent]  [INFO]: -----------------------------------------------------------------
-2019-06-21 14:23:20-0700 [Agent]  [OAuth2DeviceFlow] Polling error:authorization_pending
+2019-06-21 14:23:20-0700 [Agent]  [OAuth2DeviceFlow] Polling: authorization_pending
 ```
 
 Copy and paste the URL in a web browser, then copy and paste the alpha numeric code (ie 6VL44ZGC) into the form on that webpage. You will be re-directed to a salesforce log-in page (if you are not currently logged into Salesforce). Once you log in you will see the following logs from your imp device:
 
 ```
-2019-06-21 14:23:24-0700 [Agent]  [OAuth2DeviceFlow] Polling error:authorization_pending
-2019-06-21 14:23:30-0700 [Agent]  [OAuth2DeviceFlow] Polling error:authorization_pending
-2019-06-21 14:23:35-0700 [Agent]  [OAuth2DeviceFlow] Polling success
-2019-06-21 14:23:35-0700 [Agent]  [OAuth2DeviceFlow] Change status of session1 from 2 to 0
+2019-07-23 12:20:04-0700 [Agent]  [OAuth2DeviceFlow] Polling: authorization_pending
+2019-07-23 12:20:09-0700 [Agent]  [OAuth2DeviceFlow] Polling: authorization_pending
+2019-07-23 12:20:14-0700 [Agent]  [OAuth2DeviceFlow] Polling: authorization_pending
+2019-07-23 12:20:20-0700 [Agent]  [OAuth2DeviceFlow] Polling: authorization_pending
+2019-07-23 12:20:25-0700 [Agent]  [OAuth2DeviceFlow] Polling success
+2019-07-23 12:20:25-0700 [Agent]  [OAuth2DeviceFlow] Change status of session 1 from waiting for user to idle
 ```
 
 Your device is now authorized and will begin sending data to Salesforce.

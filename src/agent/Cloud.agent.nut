@@ -243,17 +243,34 @@ class Cloud {
             try {
                 ::debug(resp.body);
                 local body = http.jsondecode(resp.body);
+                local err = "";
+
                 if ("instance_url" in body) {
                     local url = body.instance_url;
                     ::debug("[Cloud] Instance URL: " + url);
                     _force.setInstanceUrl(url);
                     _persist.setSFInstanceURL(url);
                 } else {
-                    throw resp.body;
+                    err += "instance url";
                 }
+
+                if ("id" in body) {
+                    local usrId = body.id;
+                    ::debug("[Cloud] User Id: " + usrId);
+                    _force.setUserId(usrId);
+                    _persist.setSFUserId(usrId);
+                } else {
+                    err += (err.len() > 0) ? " and id" : "id";
+                }
+
+                if (err.len() > 0) throw "Token response missing " + err;
+                
             } catch(e) {
-                ::error("[Cloud] Could not retrieve istance URL from authorization request: " + e);
+                ::error("[Cloud] Could not retrieve data from authorization request: " + e);
+                ::debug("[Cloud] HTTP response body: " + resp.body);
             }
+        } else {
+            ::debug("[Cloud] Token handler did not contain HTTP response");
         }
 
     }

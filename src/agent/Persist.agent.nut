@@ -30,7 +30,8 @@ enum PERSIST_ERASE_SCOPE {
     SF_AUTH,
     SF_TOKEN,
     SF_AUTH_TYPE,
-    SF_INSTANCE_URL
+    SF_INSTANCE_URL, 
+    SF_USER_ID
 }
 
 // Manages Persistant Storage  
@@ -73,6 +74,10 @@ class Persist {
                 if ("instURL" in _sfAuth) _sfAuth.rawdelete("instURL");
                 _persist.sfAuth <- _sfAuth;
                 break;
+            case PERSIST_ERASE_SCOPE.SF_USER_ID:
+                if ("usrId" in _sfAuth) _sfAuth.rawdelete("usrId");
+                _persist.sfAuth <- _sfAuth;
+                break;
         }
         // Update agent persistant storage
         server.save(_persist);
@@ -98,6 +103,18 @@ class Persist {
         if (instURL != getSFInstanceURL()) {
             ::debug("[Persist] Updating stored salesforce instance URL.");
             _sfAuth.instURL <- instURL;
+            _storeSFAuth();
+        }
+    }
+
+    function getSFIUserId() {
+        return ("usrId" in _sfAuth) ? _sfAuth.instURL : null;
+    }
+
+    function setSFUserId(usrId) {
+        if (usrId != getSFIUserId()) {
+            ::debug("[Persist] Updating stored salesforce User Id.");
+            _sfAuth.usrId <- usrId;
             _storeSFAuth();
         }
     }

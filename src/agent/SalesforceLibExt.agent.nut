@@ -42,14 +42,25 @@ class SalesforceExt extends Salesforce {
         _clientSecret = consumerSecret;
     }
 
-    function setUserUrl(url) {
-        _userUrl = url;
+    function setUserId(id) {
+        _userUrl = id;
     }
 
     function getUser(cb = null) {
-        if (!isLoggedIn()) throw "[SalesforceExt] AUTH_ERR: No authentication information."
-        if (_userUrl == null && cb) cb("[SalesforceExt] Salesforce: No user URL set, cannot get user.", null); 
-
+        local err = "";
+        if (!isLoggedIn()) err += "AUTH_ERR: No authentication information. ";
+        if (_userUrl == null) err += "No user id available, cannot get user.";
+        
+        if (err.len > 0) {
+            err = "[SalesforceExt] "+ err;
+            if (cb) {
+                cb(err, null);
+                return;
+            } else {
+                throw err;
+            }
+        }
+        
         local headers = {
             "Authorization": "Bearer " + _token,
             "content-type": "application/json",

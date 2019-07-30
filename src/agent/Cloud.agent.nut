@@ -82,7 +82,7 @@ class Cloud {
         // _persist.erase();
 
         // Select DEVICE or JWT Authentication
-        _authType = SF_AUTH_TYPE.JWT;
+        _authType = SF_AUTH_TYPE.DEVICE;
         if (_authType != _persist.getSFAuthType()) {
             // Erase stored Salesforce auth data if we have changed how
             // we are authenticating
@@ -91,7 +91,7 @@ class Cloud {
         }
 
         // Initialize Saleforce library 
-        _force = SalesforceExt(SF_VERSION);
+        _force = Salesforce(SF_VERSION);
         // Try to retrieve instance URL
         local instanceURL = _persist.getSFInstanceURL();
         if (instanceURL != null) _force.setInstanceUrl(instanceURL);
@@ -115,7 +115,7 @@ class Cloud {
     function _onReportSent(err, respData) {
         if (err) {
             ::debug("[Cloud] Salesforce reporting error occurred: ");
-            ::error(http.jsonencode(err));
+            ::error(err);
         } else {
             ::debug("[Cloud] Salesforce readings sent successfully");
         }
@@ -184,21 +184,30 @@ class Cloud {
 
     function _onAuthPing(err, resp) {
         if (err != null) { 
-            local e = (typeof err == "array") ? err[0] : err;
-            local errIsTable = typeof e == "table";
-            local errCode = (errIsTable && "errorCode" in e) ? e.errorCode : null;
-            ::debug("[Cloud] ping error code: " + errCode);
+            ::debug("[Cloud] " + err);
 
-            switch (errCode) {
-                case SF_ERROR_CODES.MISSING_FIELD:
-                    ::debug("[Cloud] Used stored token to authorize device with Salesforce");
-                    return;
-                case SF_ERROR_CODES.INVALID_SESSION_ID:
-                    ::debug("[Cloud] Stored token expired");
-                    break;
-                default: 
-                    ::debug("[Cloud] Salesforce send ping unexpected error occurred: ");
-                    (errIsTable) ? ::error(http.jsonencode(err)) : ::err(err);
+            try {
+                // Try to parse response to get error code
+                local body = http.jsondecode(resp.body);
+                local e = (typeof body == "array") ? body[0] : body;
+                local errIsTable = (typeof e == "table");
+
+                local errCode = (errIsTable && "errorCode" in e) ? e.errorCode : null;
+                ::debug("[Cloud] ping error code: " + errCode);
+
+                switch (errCode) {
+                    case SF_ERROR_CODES.MISSING_FIELD:
+                        ::debug("[Cloud] Used stored token to authorize device with Salesforce");
+                        return;
+                    case SF_ERROR_CODES.INVALID_SESSION_ID:
+                        ::debug("[Cloud] Stored token expired");
+                        break;
+                    default: 
+                        ::debug("[Cloud] Salesforce send ping unexpected error occurred: ");
+                        ::error(resp.body);
+                }
+            } catch(e) {
+                ::debug("[Cloud] ping error unable to parse response: " + e);
             }
 
             // Our stored token is bad, erase it from storage and SF instance
@@ -236,38 +245,15 @@ class Cloud {
             return;
         }
 
-        _force.setToken(token);
-        _persist.setSFToken(token);
-
         if (resp != null) {
-            try {
-                ::debug(resp.body);
-                local body = http.jsondecode(resp.body);
-                local err = "";
-
-                if ("instance_url" in body) {
-                    local url = body.instance_url;
-                    ::debug("[Cloud] Instance URL: " + url);
-                    _force.setInstanceUrl(url);
-                    _persist.setSFInstanceURL(url);
-                } else {
-                    err += "instance url";
-                }
-
-                if ("id" in body) {
-                    local usrId = body.id;
-                    ::debug("[Cloud] User Id: " + usrId);
-                    _force.setUserId(usrId);
-                    _persist.setSFUserId(usrId);
-                } else {
-                    err += (err.len() > 0) ? " and id" : "id";
-                }
-
-                if (err.len() > 0) throw "Token response missing " + err;
-                
-            } catch(e) {
-                ::error("[Cloud] Could not retrieve data from authorization request: " + e);
-                ::debug("[Cloud] HTTP response body: " + resp.body);
+            local parsed = _force.processAuthResp(resp);
+            if (parsed.err == null) {
+                local body = parsed.data;
+                _persist.setSFToken(token);
+                _persist.setSFInstanceURL(body.instance_url);
+                if ("id" in body) _persist.setSFUserId(body.id);
+            } else {
+                ::error("[Cloud] Unable parse Salesforce auth response: " + parsed.err);
             }
         } else {
             ::debug("[Cloud] Token handler did not contain HTTP response");

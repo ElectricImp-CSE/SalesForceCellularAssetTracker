@@ -27,13 +27,12 @@
 // Libraries 
 #require "MessageManager.lib.nut:2.4.0"
 #require "UBloxAssistNow.agent.lib.nut:1.0.0"
-// #require "OAuth2.agent.lib.nut:2.0.1"
+#require "OAuth2.agent.lib.nut:2.1.0"
 // #require "Salesforce.agent.lib.nut:2.0.1"
 // #require "BayeuxClient.agent.lib.nut:1.0.0"
 #require "Losant.agent.lib.nut:1.0.0"
 // Grab latest update of unpublished library version from GitHub
 @include "github:electricimp/Salesforce/Salesforce.agent.lib.nut@develop"
-@include "github:electricimp/OAuth-2.0/OAuth2.agent.lib.nut@develop"
 
 // Supporting files
 @include __PATH__ + "/../shared/Logger.shared.nut"
